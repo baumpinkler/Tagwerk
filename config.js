@@ -8,7 +8,7 @@
    Sicherheitsregeln (firestore.rules).
    ===================================================================== */
 
-const firebaseConfig = {
+window.TAGWERK_FIREBASE = {
   apiKey: "AIzaSyDhHy_83yWIrWODKYxqv1DIMRF8rDtqsyw",
   authDomain: "tagwerk-familie.firebaseapp.com",
   projectId: "tagwerk-familie",
