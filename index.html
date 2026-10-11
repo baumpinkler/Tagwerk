@@ -1,0 +1,1526 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1C2740">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tagwerk">
+<title>Tagwerk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --ink:#1A2233; --muted:#6A7487; --line:#E1E5EB;
+  --chip:#EDF0F4; --accent:#2B7A57; --accent-soft:#E1F1E8; --on-accent:#FFFFFF;
+  --warn:#A86E05; --warn-soft:#FBF2DC; --danger:#B03F35; --hi:#D0573F;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", Roboto, system-ui, sans-serif;
+  --r-sm:8px; --r-md:14px; --r-lg:22px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F141D; --surface:#182030; --ink:#E5EAF2; --muted:#8E9AAE; --line:#2A3446;
+    --chip:#222C3D; --accent:#5CC092; --accent-soft:#1D3A2E; --on-accent:#0F141D;
+    --warn:#EBBB52; --warn-soft:#352B14; --danger:#E5826F; --hi:#EE8A6E; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F141D; --surface:#182030; --ink:#E5EAF2; --muted:#8E9AAE; --line:#2A3446;
+  --chip:#222C3D; --accent:#5CC092; --accent-soft:#1D3A2E; --on-accent:#0F141D;
+  --warn:#EBBB52; --warn-soft:#352B14; --danger:#E5826F; --hi:#EE8A6E; color-scheme:dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:var(--body);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;min-height:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wrap{max-width:560px;margin:0 auto;padding:0 18px 110px}
+
+/* ---------- Kopf ---------- */
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:24px 0 8px}
+.top-title{font-family:var(--display);font-weight:600;font-size:22px;line-height:1.15;margin:0;letter-spacing:-.01em}
+.top-sub{color:var(--muted);font-size:15px;margin-top:3px}
+.ring{position:relative;width:54px;height:54px;flex:none}
+.ring svg{width:54px;height:54px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5}
+.ring .track{stroke:var(--line)}
+.ring .val{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .4s ease}
+.ring span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:700}
+.icon-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;padding:0}
+.icon-btn svg{width:20px;height:20px}
+
+/* ---------- Woche (Tagesansicht) ---------- */
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:14px 0 6px}
+.wk{border:0;background:transparent;border-radius:var(--r-md);padding:8px 0 9px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.wk small{font-size:12px;color:var(--muted)}
+.wk b{font-family:var(--display);font-weight:600;font-size:18px;line-height:1.1}
+.wk .dots{height:6px;display:flex;gap:3px}
+.wk .dots i{width:5px;height:5px;border-radius:50%;background:var(--muted);opacity:.5}
+.wk .dots i.all{background:var(--accent);opacity:1}
+.wk.is-today b{color:var(--accent)}
+.wk.is-sel{background:var(--surface);box-shadow:0 0 0 1.5px var(--ink)}
+.week-nav{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--muted)}
+.link-btn{border:0;background:none;padding:6px 2px;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+.link-btn:hover{color:var(--ink)}
+.day-title{font-family:var(--display);font-weight:600;font-size:20px;margin:24px 0 10px}
+
+/* ---------- Listen ---------- */
+.sec{margin-top:22px}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px}
+.sec-head h2{font-family:var(--display);font-weight:600;font-size:18px;margin:0;line-height:1.2}
+.sec-head .count{color:var(--muted);font-size:14px;white-space:nowrap}
+.list{background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--line);overflow:hidden}
+.row{position:relative;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:11px 8px 11px 14px;border-top:1px solid var(--line)}
+.list>.row:first-child,.list>.pblock:first-child{border-top:0}
+.row.hi::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--hi)}
+.check{width:28px;height:28px;border-radius:50%;border:2px solid var(--muted);background:transparent;display:grid;place-items:center;padding:0;flex:none;transition:background .18s,border-color .18s,transform .18s}
+.check svg{width:16px;height:16px;stroke:var(--on-accent);stroke-width:3;fill:none;stroke-dasharray:24;stroke-dashoffset:24;transition:stroke-dashoffset .25s ease .05s}
+.check.on{background:var(--accent);border-color:var(--accent)}
+.check.on svg{stroke-dashoffset:0}
+.check:active{transform:scale(.9)}
+.row-main{min-width:0;border:0;background:none;text-align:left;padding:2px 0}
+.row-title{overflow-wrap:anywhere}
+.row-meta{font-size:14px;color:var(--muted);margin-top:1px}
+.row-meta .warn{color:var(--warn);font-weight:700}
+.row.done .row-title{color:var(--muted);text-decoration:line-through}
+.more{width:36px;height:36px;border:0;background:none;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.more:hover{background:var(--chip)}
+.more svg{width:18px;height:18px}
+.pblock{border-top:1px solid var(--line);padding-bottom:6px}
+.phead{display:flex;align-items:center;gap:9px;padding:13px 14px 4px;font-size:14px;color:var(--muted)}
+.phead b{color:var(--ink);font-size:15px}
+.pdot{width:10px;height:10px;border-radius:3px;background:var(--pc);flex:none}
+.pcount{margin-left:auto;white-space:nowrap}
+.pblock .row{border-top:0;margin-left:18px;padding-left:12px;padding-top:8px;padding-bottom:8px;border-left:2px solid var(--pc)}
+.pblock .row.hi::before{left:-2px;width:2px;top:0;bottom:0;border-radius:0}
+details.done-wrap summary{cursor:pointer;color:var(--muted);font-size:15px;padding:6px 2px;list-style:none}
+details.done-wrap summary::-webkit-details-marker{display:none}
+details.done-wrap summary::before{content:"▸ ";display:inline-block;transition:transform .2s}
+details.done-wrap[open] summary::before{transform:rotate(90deg)}
+details.done-wrap .list{margin-top:8px}
+.empty{text-align:center;padding:36px 20px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-lg);margin-top:22px}
+.empty p{margin:0 0 16px;color:var(--muted)}
+.empty p:last-child{margin-bottom:0}
+.empty .big{font-family:var(--display);font-weight:600;font-size:20px;color:var(--ink);margin-bottom:6px}
+
+/* ---------- Aufgaben & Projekte ---------- */
+.lib-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 10px 12px 14px;border-top:1px solid var(--line);width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;position:relative}
+.list>.lib-row:first-child{border-top:0}
+.lib-row.hi::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--hi)}
+.lib-row:hover{background:var(--chip)}
+.lib-row .chev{color:var(--muted)}
+.pblock .lib-row{border-top:0;margin-left:18px;width:calc(100% - 18px);border-left:2px solid var(--pc);padding-top:9px;padding-bottom:9px}
+.pblock .lib-row.hi::before{left:-2px;width:2px;top:0;bottom:0;border-radius:0}
+.pblock>.lib-row.phead-btn{margin-left:0;width:100%;border-left:0;padding-top:13px}
+.add-in{display:block;margin-left:18px;padding:9px 12px;border:0;border-left:2px solid var(--pc);background:none;color:var(--accent);font-weight:700;font-size:15px;text-align:left;width:calc(100% - 18px)}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;background:var(--chip);color:var(--muted);margin-left:6px;vertical-align:1px}
+.tag.hi{background:color-mix(in srgb,var(--hi) 15%,transparent);color:var(--hi)}
+.arrows{display:flex;gap:2px}
+.arrows button{width:36px;height:36px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0;display:grid;place-items:center}
+.arrows button:disabled{opacity:.3;cursor:default}
+.arrows svg{width:16px;height:16px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+/* ---------- Fußleiste ---------- */
+.foot{position:fixed;left:0;right:0;bottom:0;padding:8px 18px calc(8px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);z-index:10}
+.foot-in{max-width:560px;margin:0 auto;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.foot-label{font-size:14px;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.burger{display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:7px 14px 7px 11px;font-size:15px;font-weight:700;flex:none}
+.burger svg{width:18px;height:18px}
+.navlist{display:flex;flex-direction:column}
+.nav-item{display:flex;align-items:center;gap:14px;padding:13px 4px;border:0;border-top:1px solid var(--line);background:none;text-align:left;font-size:17px;width:100%}
+.navlist .nav-item:first-child{border-top:0}
+.nav-item svg{width:21px;height:21px;color:var(--muted);flex:none}
+.nav-item.on{font-weight:700}
+.nav-item.on svg{color:var(--accent)}
+.nav-group{margin-top:8px;border:1px solid var(--line);border-radius:var(--r-md);padding:0 12px;margin-bottom:12px}
+
+/* ---------- Buttons & Felder ---------- */
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-md);padding:11px 16px;font-weight:700}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.danger{color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.field{display:block;margin:0 0 16px}
+.field>span,.lbl{display:block;font-size:14px;font-weight:700;margin-bottom:6px;color:var(--muted)}
+.inp{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:var(--r-sm);padding:11px 12px;font-size:17px}
+.inp.sm{width:5.2em;text-align:center;display:inline-block;padding:9px 6px}
+select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 12px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:34px}
+select.inp.inline{width:auto;display:inline-block}
+.seg{display:flex;flex-wrap:wrap;background:var(--chip);border-radius:var(--r-md);padding:4px;gap:2px}
+.seg button{flex:1 1 auto;border:0;background:none;padding:9px 8px;border-radius:10px;font-size:15px;white-space:nowrap;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips.days{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.chips.days .chip{padding:8px 0;text-align:center}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:20px;padding:7px 13px;font-size:15px}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--bg);font-weight:700}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.mgrid .chip{padding:8px 0;border-radius:10px;text-align:center}
+.mgrid .chip.wide{grid-column:span 3}
+.inline-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px}
+.yrow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.box{border:1px solid var(--line);border-radius:var(--r-md);padding:14px;margin:0 0 16px;background:var(--surface)}
+.switch-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.switch-row b{display:block}
+.switch-row small{color:var(--muted);font-size:14px}
+.switch{position:relative;width:52px;height:32px;flex:none}
+.switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+.switch i{position:absolute;inset:0;border-radius:16px;background:var(--line);transition:background .2s}
+.switch i::after{content:"";position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch input:checked+i{background:var(--accent)}
+.switch input:checked+i::after{transform:translateX(20px)}
+.switch input:focus-visible+i{outline:3px solid var(--accent);outline-offset:2px}
+.radio{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
+.radio:first-of-type{border-top:0}
+.radio input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--accent)}
+.radio small{display:block;color:var(--muted);font-size:14px}
+.preview{margin-top:10px;padding:12px 14px;border-radius:var(--r-sm);background:var(--accent-soft);font-size:15px;line-height:1.45}
+.preview:empty{display:none}
+.swatches{display:flex;gap:10px}
+.sw{width:34px;height:34px;border-radius:10px;border:3px solid transparent;padding:0}
+.sw.on{border-color:var(--ink)}
+
+/* ---------- Bottom Sheet ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,15,25,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.open{opacity:1;pointer-events:auto}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow-y:auto;border-radius:var(--r-lg) var(--r-lg) 0 0;padding:6px 20px calc(24px + env(safe-area-inset-bottom,0px));transform:translateY(30px);transition:transform .22s ease}
+.scrim.open .sheet{transform:none}
+@media (min-width:700px){.scrim{align-items:center}.sheet{border-radius:var(--r-lg);max-height:88%;padding-bottom:24px}}
+.sheet-head{position:sticky;top:-6px;background:var(--surface);display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 0 12px;z-index:1}
+.sheet-head h2{font-family:var(--display);font-weight:600;font-size:23px;margin:0;line-height:1.2}
+.sheet-actions{display:flex;gap:10px;justify-content:space-between;margin-top:22px}
+.sheet-actions .grow{flex:1}
+.menu{display:flex;flex-direction:column;gap:8px}
+.menu .btn{text-align:left}
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.quick .btn{padding:10px 6px;font-size:15px;text-align:center}
+.quick .btn small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.note{font-size:14px;color:var(--muted);margin:8px 0 0}
+textarea.inp{min-height:130px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;resize:vertical}
+
+.toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:12px 14px 12px 18px;border-radius:var(--r-md);display:flex;gap:14px;align-items:center;max-width:calc(100% - 32px);width:max-content;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:30;font-size:15px}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{border:0;background:none;color:inherit;font-weight:700;text-decoration:underline;padding:4px}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* ---------- Familie ---------- */
+.list.warn{border-color:var(--warn)}
+.notice{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.notice-btn{display:block;width:100%;text-align:left;margin-top:12px;padding:12px 14px;border-radius:var(--r-md);border:1px solid var(--warn);background:var(--warn-soft);color:var(--ink);font-weight:700}
+.choice{display:flex;flex-direction:column;gap:12px;margin-top:22px}
+.choice-btn{display:block;text-align:left;padding:18px;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--surface)}
+.choice-btn:hover{border-color:var(--ink)}
+.choice-btn b{display:block;font-family:var(--display);font-weight:600;font-size:19px;margin-bottom:4px}
+.choice-btn span{color:var(--muted);font-size:15px}
+.form-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px}
+.err{color:var(--danger)}
+.err:empty{display:none}
+.inp.code{text-transform:uppercase;letter-spacing:.2em;font-weight:700}
+.code-big{font-family:var(--display);font-weight:800;font-size:30px;letter-spacing:.12em;margin:2px 0 6px}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;flex:none}
+.mem{display:flex;gap:12px;align-items:center}
+.badge{margin-left:auto;background:var(--hi);color:#fff;border-radius:10px;font-size:12px;font-weight:700;padding:1px 7px;min-width:20px;text-align:center;line-height:18px}
+.badge[hidden]{display:none}
+.burger .badge{margin-left:2px}
+.nav-item span:first-of-type{flex:1}
+.check.locked{border-style:dashed;opacity:.55;cursor:not-allowed}
+.check.locked.on{opacity:.75;border-style:solid}
+span.check{display:grid}
+.prio-lbl{font-size:13px;color:var(--muted);margin:14px 2px 6px}
+.prio-lbl:first-child{margin-top:0}
+.h-ic{width:18px;height:18px;vertical-align:-3px;margin-right:7px;color:var(--muted)}
+.btn .h-ic{margin-right:8px}
+[hidden]{display:none!important}
+.rt{padding:10px 0;border-top:1px solid var(--line)}
+.box>.rt:first-child,.box>.note+.rt{border-top:0}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<footer class="foot" id="foot" hidden>
+  <div class="foot-in">
+    <span class="foot-label" id="foot-label">Heute</span>
+    <button class="burger" data-a="menu" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>Menü<span class="badge" id="foot-badge" hidden></span></button>
+  </div>
+</footer>
+
+<div class="scrim" id="scrim" aria-hidden="true"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-undo" hidden>Rückgängig</button></div>
+
+<!--CONFIG--><script src="config.js"></script><!--/CONFIG-->
+<script>
+"use strict";
+/* =====================================================================
+   Datum-Helfer (intern: Tagesnummern seit 1970, UTC – keine Zeitzonen-Fallen)
+   ===================================================================== */
+const DAY = 864e5;
+const WD = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+const WDL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
+const MON = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const COLORS = ["#3B6FD8","#2E9C8A","#C2503D","#8A5CC9","#C98A12","#5E7A3A"];
+
+function todayNum(){ const n=new Date(); return Math.round(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())/DAY); }
+function parts(dn){ const d=new Date(dn*DAY); return {y:d.getUTCFullYear(), m:d.getUTCMonth()+1, d:d.getUTCDate(), wd:(d.getUTCDay()+6)%7}; }
+function dnOf(y,m,d){ return Math.round(Date.UTC(y,m-1,d)/DAY); }
+function lastDayOf(y,m){ return new Date(Date.UTC(y,m,0)).getUTCDate(); }
+function iso(dn){ const p=parts(dn); return p.y+"-"+String(p.m).padStart(2,"0")+"-"+String(p.d).padStart(2,"0"); }
+function fromIso(s){ if(!s) return null; const [y,m,d]=s.split("-").map(Number); return (y&&m&&d)? dnOf(y,m,d) : null; }
+function fmtShort(dn){ const p=parts(dn); return WD[p.wd]+", "+p.d+"."+p.m+"."; }
+function fmtLong(dn){ const p=parts(dn); return p.d+". "+MON[p.m-1]+" "+p.y; }
+function fmtRel(dn){ const T=todayNum(); if(dn===T) return "heute"; if(dn===T+1) return "morgen"; if(dn===T-1) return "gestern"; return fmtShort(dn); }
+function dot(s){ return /\.$/.test(s)? s : s+"."; }
+function joinDe(a){ if(a.length<2) return a[0]||""; return a.slice(0,-1).join(", ")+" und "+a[a.length-1]; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+/* =====================================================================
+   Zustand
+   D = zusammengeführte Sicht aus persönlichen (scope "me") und Familien-Daten (scope "fam").
+   Die Termin-Logik oben arbeitet nur auf D.
+   ===================================================================== */
+function newRec(type,start){
+  const p=parts(start);
+  return {type, start, end:null, every:1, weekdays:[p.wd], monthDays:[p.d], yearDates:[{m:p.m,d:p.d}]};
+}
+const emptyData=()=>({tasks:[], projects:[], log:{}});
+let D = emptyData();
+const S = {mode:null, phase:"loading", uid:null, fid:null, family:null, members:{}, requests:[], familyName:"", isAnon:true, email:null, error:null};
+let B = null; // Backend (Demo oder Firebase)
+
+const PRIO=[[1,"Hoch"],[2,"Mittel"],[3,"Niedrig"]];
+const RIGHTS=[["check","Abhaken & verschieben","Familien-Aufgaben erledigen, die ihr oder niemandem zugewiesen sind."],
+              ["edit","Anlegen & bearbeiten","Familien-Projekte und -Aufgaben erstellen, ändern und löschen."],
+              ["assign","Zuweisen","Aufgaben einer Person geben, die abhaken darf."],
+              ["admin","Admin","Mitglieder aufnehmen, Rechte vergeben, mit Admin-Passwort persönliche Aufgaben einsehen."]];
+
+function normalize(){
+  let i=0;
+  for(const x of [...D.projects, ...D.tasks]){
+    if(![1,2,3].includes(x.prio)) x.prio=2;
+    if(typeof x.order!=="number") x.order=i;
+    if(x.scope!=="fam") x.scope="me";
+    if(x.scope==="fam" && x.assignee===undefined && x.title!==undefined) x.assignee=null;
+    i++;
+  }
+}
+const byPrio=(a,b)=>(a.prio-b.prio)||(a.order-b.order);
+function container(item){
+  const sc=item.scope||"me";
+  return item.projectId ? D.tasks.filter(t=>t.projectId===item.projectId)
+                        : [...D.projects, ...D.tasks.filter(t=>!t.projectId)].filter(x=>x.scope===sc);
+}
+function nextOrder(item){ return container(item).reduce((m,x)=>Math.max(m,x.order|0),-1)+1; }
+function neighbours(item){
+  const list=container(item).sort(byPrio), i=list.indexOf(item);
+  return {up: i>0 && list[i-1].prio===item.prio, down: i<list.length-1 && list[i+1].prio===item.prio};
+}
+
+/* ---------- Rechte ---------- */
+function meM(){ return S.members[S.uid]||null; }
+function R(){ const r=(meM()&&meM().rights)||{}, a=!!r.admin; return {admin:a, check:a||!!r.check, edit:a||!!r.edit, assign:a||!!r.assign}; }
+function rightsOf(m){ const r=(m&&m.rights)||{}, a=!!r.admin; return {admin:a, check:a||!!r.check, edit:a||!!r.edit, assign:a||!!r.assign}; }
+function canAct(t){ if(t.scope!=="fam") return true; const r=R(); return r.check && (t.assignee==null || t.assignee===S.uid || r.admin); }
+function canEditItem(x){ return x.scope!=="fam" || R().edit; }
+function assignable(){ return Object.entries(S.members).filter(([,m])=>rightsOf(m).check).map(([uid,m])=>({uid,name:m.name,color:m.color})).sort((a,b)=>a.name.localeCompare(b.name)); }
+function nameOf(uid){ if(uid===S.uid) return "dir"; return (S.members[uid]&&S.members[uid].name)||"ehemaligem Mitglied"; }
+function nameOfNom(uid){ if(uid===S.uid) return "dich"; return (S.members[uid]&&S.members[uid].name)||"ehemaliges Mitglied"; }
+function rightsSummary(m){ const r=rightsOf(m); if(r.admin) return "Admin"; const a=[]; if(r.edit) a.push("plant"); if(r.assign) a.push("weist zu"); if(r.check) a.push("hakt ab"); return a.length? joinDe(a).replace(/^./,c=>c.toUpperCase()) : "Nur ansehen"; }
+const inToday = t => t.scope!=="fam" || (R().check && (t.assignee==null || t.assignee===S.uid));
+const isFam = t => t.scope==="fam";
+
+/* ---------- Daten zusammenführen & zurückschreiben ---------- */
+function subset(scope){
+  const T=todayNum();
+  const tasks=D.tasks.filter(t=>t.scope===scope), ids=new Set(tasks.map(t=>t.id)), log={};
+  for(const k in D.log){
+    if(!ids.has(k.split("|")[0])) continue;
+    const o=+k.split("|")[1], L=D.log[k];
+    if(scope==="me" && Math.max(o, L.m??o, L.d??o) < T-150) continue; // alte Einträge aufräumen
+    log[k]=L;
+  }
+  return {tasks:clone(tasks), projects:clone(D.projects.filter(p=>p.scope===scope)), log:clone(log)};
+}
+function rebuild(priv, fam){
+  D={ tasks:[...(priv.tasks||[]).map(t=>({...t,scope:"me"})), ...(fam.tasks||[]).map(t=>({...t,scope:"fam"}))],
+      projects:[...(priv.projects||[]).map(p=>({...p,scope:"me"})), ...(fam.projects||[]).map(p=>({...p,scope:"fam"}))],
+      log:{...(priv.log||{}), ...(fam.log||{})} };
+  normalize();
+}
+function snapState(){
+  const m=a=>new Map(a.map(x=>[x.id,JSON.stringify(x)]));
+  return {t:m(D.tasks), p:m(D.projects), l:new Map(Object.entries(D.log).map(([k,v])=>[k,JSON.stringify(v)]))};
+}
+/* Vergleicht vorher/nachher und schreibt nur, was sich geändert hat:
+   persönliche Daten als ein Dokument, Familien-Daten als einzelne Einträge. */
+function commit(before){
+  const ops=[]; let priv=false;
+  const scopeOf=j=>JSON.parse(j).scope;
+  const diff=(cur,prev,kind)=>{
+    const seen=new Set();
+    for(const x of cur){ seen.add(x.id); if(prev.get(x.id)!==JSON.stringify(x)){ if(x.scope==="fam") ops.push({op:"set",kind,id:x.id,data:clone(x)}); else priv=true; } }
+    for(const [id,j] of prev) if(!seen.has(id)){ if(scopeOf(j)==="fam") ops.push({op:"del",kind,id}); else priv=true; }
+  };
+  diff(D.tasks,before.t,"task"); diff(D.projects,before.p,"project");
+  const tScope=id=>{ const t=D.tasks.find(x=>x.id===id); if(t) return t.scope; const j=before.t.get(id); return j?scopeOf(j):"me"; };
+  for(const k of new Set([...Object.keys(D.log), ...before.l.keys()])){
+    const cur=D.log[k], j=cur?JSON.stringify(cur):undefined;
+    if(j===before.l.get(k)) continue;
+    if(tScope(k.split("|")[0])==="fam") ops.push({op:cur?"set":"del",kind:"log",id:k,data:cur?clone(cur):null}); else priv=true;
+  }
+  if(priv) B.savePrivate(subset("me"));
+  if(ops.length) B.apply(ops).catch(err=>{ console.warn(err); toast("Das wurde nicht gespeichert: fehlende Berechtigung oder keine Verbindung."); });
+}
+let undoBefore=null;
+function change(fn){ const before=snapState(); fn(); undoBefore=before; commit(before); }
+function undo(){
+  if(!undoBefore) return;
+  const target=undoBefore, now=snapState();
+  const back=m=>[...m.values()].map(j=>JSON.parse(j));
+  D.tasks=back(target.t); D.projects=back(target.p); D.log=Object.fromEntries([...target.l].map(([k,j])=>[k,JSON.parse(j)]));
+  undoBefore=null; commit(now); render(); hideToast();
+}
+
+/* ---------- Aktionen ---------- */
+function logEntry(key){ return D.log[key] || (D.log[key]={}); }
+function cleanEntry(key){ const L=D.log[key]; if(L && L.d==null && L.m==null && !L.s) delete D.log[key]; }
+function findOcc(key){
+  const [tid,o]=key.split("|"); const t=D.tasks.find(x=>x.id===tid); if(!t) return null;
+  const orig=+o; return occurrences(t, orig-2, orig+2).find(x=>x.orig===orig) || null;
+}
+function moveOcc(o, target){
+  const t=o.t, L=logEntry(o.key);
+  if(t.follow==="shift" && target!==o.eff){ t.shifts=[...(t.shifts||[]), {after:o.orig, delta:target-o.eff}]; }
+  if(target===o.base && t.follow!=="shift") delete L.m; else L.m=target;
+  cleanEntry(o.key);
+}
+function denyMsg(t){
+  if(t.scope==="fam" && !R().check) return "Du darfst Familien-Aufgaben nur ansehen.";
+  if(t.scope==="fam") return "Diese Aufgabe ist "+nameOf(t.assignee)+" zugewiesen.";
+  return "";
+}
+function toggleDone(o){
+  if(!canAct(o.t)){ toast(denyMsg(o.t)); return; }
+  const T=todayNum();
+  change(()=>{
+    if(o.done){ const L=logEntry(o.key); delete L.d; delete L.by; cleanEntry(o.key); return; }
+    if(o.eff<T && o.t.movable) moveOcc(o,T);
+    const L=logEntry(o.key); L.d=T; if(o.t.scope==="fam") L.by=S.uid;
+  });
+  render();
+}
+function replacedKeys(t){ const T=todayNum(); return new Set(occurrences(t,T-60,T+400).filter(o=>o.replaced).map(o=>o.key)); }
+function doMove(key,target){
+  const o=findOcc(key); if(!o) return;
+  if(!canAct(o.t)){ toast(denyMsg(o.t)); return; }
+  if(target==null || target===o.eff){ closeSheet(); return; }
+  const before=replacedKeys(o.t);
+  change(()=>moveOcc(o,target));
+  const t=D.tasks.find(x=>x.id===o.t.id);
+  const after=[...replacedKeys(t)].filter(k=>!before.has(k)).map(k=>+k.split("|")[1]).sort((a,b)=>a-b);
+  let msg="Verschoben auf "+fmtRel(target); if(!msg.endsWith(".")) msg+=".";
+  if(after.length) msg+=" Termin am "+joinDe(after.map(fmtShort))+(after.length>1?" entfallen.":" entfällt.");
+  if(t.follow==="shift") msg+=" Folgetermine rücken mit.";
+  closeSheet(); render(); toast(msg,true);
+}
+function doSkip(key){
+  const o=findOcc(key); if(!o) return;
+  if(!canAct(o.t)){ toast(denyMsg(o.t)); return; }
+  change(()=>{ logEntry(key).s=1; }); closeSheet(); render(); toast("Termin ausgelassen.",true);
+}
+function doAssign(taskId, uid){
+  const t=D.tasks.find(x=>x.id===taskId); if(!t||!R().assign) return;
+  change(()=>{ t.assignee=uid||null; });
+  closeSheet(); render(); toast(uid? "Zugewiesen an "+nameOfNom(uid).replace(/^dich$/,"dich")+"." : "Für alle freigegeben.", true);
+}
+function reorder(item,dir){
+  if(!canEditItem(item)) return;
+  change(()=>{
+    const list=container(item).sort(byPrio); list.forEach((x,i)=>x.order=i);
+    const i=list.indexOf(item), j=i+dir;
+    if(j<0 || j>=list.length || list[j].prio!==item.prio) return;
+    [list[i].order,list[j].order]=[list[j].order,list[i].order];
+  });
+  render();
+}
+
+/* =====================================================================
+   Backend 1: Demo – alles nur auf diesem Gerät, mehrere Personen simulierbar
+   ===================================================================== */
+async function pinHash(fid,pin){
+  const buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fid+":"+pin));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function genCode(){ const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s=""; for(let i=0;i<6;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
+const MCOL=["#3B6FD8","#2E9C8A","#C2503D","#8A5CC9","#C98A12","#5E7A3A","#B3478A"];
+
+function demoBackend(){
+  const KEY="tagwerk.demo.v2";
+  let st; try{ st=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+  if(!st) st={current:"u-"+uid(), fam:null, users:{}};
+  const persist=()=>{ try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} };
+  const F=()=>st.fam;
+  const sync=()=>{
+    const f=F(); S.uid=st.current;
+    const u=st.users[S.uid]||(f&&(f.members[S.uid]||f.requests[S.uid])?{fid:f.id,familyName:f.name}:{}); S.fid=u.fid||null; S.familyName=u.familyName||"";
+    if(!f || S.fid!==f.id){ S.phase="welcome"; S.members={}; rebuild(emptyData(),emptyData()); return; }
+    if(!f.members[S.uid]){ if(f.requests[S.uid]){ S.phase="waiting"; } else { S.phase="welcome"; } S.members={}; return; }
+    S.phase="app"; S.family={name:f.name, code:f.code, createdBy:f.createdBy}; S.members=clone(f.members);
+    S.requests=R().admin? Object.entries(f.requests).map(([uid,r])=>({uid,...r})) : [];
+    rebuild(f.priv[S.uid]||emptyData(), {tasks:Object.values(f.tasks), projects:Object.values(f.projects), log:clone(f.log)});
+  };
+  const be={
+    kind:"demo",
+    async start(){ sync(); },
+    savePrivate(data){ const f=F(); if(!f) return; f.priv[S.uid]=clone(data); persist(); },
+    async apply(ops){
+      const f=F();
+      for(const o of ops){
+        const coll=o.kind==="task"?f.tasks:o.kind==="project"?f.projects:f.log;
+        if(o.op==="del") delete coll[o.id]; else coll[o.id]=clone(o.data);
+      }
+      persist();
+    },
+    async createFamily(name,myName,pin,importData){
+      const id="f-"+uid();
+      st.fam={id, name, code:genCode(), createdBy:st.current, pinHash:await pinHash(id,pin),
+        members:{[st.current]:{name:myName,color:MCOL[0],rights:{admin:true,check:true,edit:true,assign:true},joinedAt:Date.now()}},
+        requests:{}, tasks:{}, projects:{}, log:{}, priv:{}};
+      if(importData) st.fam.priv[st.current]=importData;
+      st.users[st.current]={fid:id, familyName:name}; persist(); sync();
+    },
+    async requestJoin(code,name){
+      const f=F(); if(!f || f.code!==code.toUpperCase().replace(/[^A-Z0-9]/g,"")) throw new Error("code");
+      f.requests[st.current]={name, at:Date.now()}; st.users[st.current]={fid:f.id, familyName:f.name}; persist(); sync();
+    },
+    async cancelRequest(){ const f=F(); if(f) delete f.requests[st.current]; delete st.users[st.current]; persist(); sync(); },
+    async approve(uid,name,rights){ const f=F(); const n=Object.keys(f.members).length; f.members[uid]={name, color:MCOL[n%MCOL.length], rights, joinedAt:Date.now()}; delete f.requests[uid]; persist(); sync(); },
+    async reject(uid){ delete F().requests[uid]; persist(); sync(); },
+    async updateMember(uid,patch){ Object.assign(F().members[uid],clone(patch)); persist(); sync(); },
+    async removeMember(uid){ const f=F(); delete f.members[uid]; delete f.priv[uid]; for(const t of Object.values(f.tasks)) if(t.assignee===uid) t.assignee=null; persist(); sync(); },
+    async setPin(pin){ const f=F(); f.pinHash=await pinHash(f.id,pin); persist(); },
+    async readPrivate(uid,pin){ const f=F(); if(await pinHash(f.id,pin)!==f.pinHash) throw new Error("pin"); return clone(f.priv[uid]||emptyData()); },
+    async renameFamily(name){ F().name=name; persist(); sync(); },
+    // nur Demo:
+    people(){ const f=F(); if(!f) return []; return [...Object.entries(f.members).map(([uid,m])=>({uid,name:m.name,member:true})), ...Object.entries(f.requests).map(([uid,r])=>({uid,name:r.name+" (wartet)",member:false}))]; },
+    switchTo(uid){ st.current=uid; persist(); sync(); },
+    newDevice(){ st.current="u-"+uid(); persist(); sync(); },
+    simulateRequest(){ const f=F(); const names=["Oma Erika","Lena","Max","Tante Bea"]; const nm=names[Object.keys(f.requests).length%names.length]; const id="u-"+uid(); f.requests[id]={name:nm, at:Date.now()}; st.users[id]={fid:f.id, familyName:f.name}; persist(); sync(); },
+    reset(){ try{ localStorage.removeItem(KEY); }catch(e){} location.reload(); },
+  };
+  return be;
+}
+
+/* =====================================================================
+   Backend 2: Firebase – Anmeldung, gemeinsame Datenbank, Rechte auf dem Server
+   ===================================================================== */
+async function firebaseBackend(cfg){
+  const base="https://www.gstatic.com/firebasejs/10.12.2/";
+  const [A,AU,F]=await Promise.all([import(base+"firebase-app.js"), import(base+"firebase-auth.js"), import(base+"firebase-firestore.js")]);
+  const app=A.initializeApp(cfg), auth=AU.getAuth(app);
+  let db; try{ db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})}); }catch(e){ db=F.getFirestore(app); }
+  const {doc,collection,getDoc,setDoc,updateDoc,deleteDoc,onSnapshot,writeBatch,query,where,Timestamp}=F;
+  let unsubs=[], reqUnsub=null, fam=emptyData(), privRev=-1, privTimer=null, privPending=null;
+  const stop=()=>{ unsubs.forEach(u=>u()); unsubs=[]; if(reqUnsub){reqUnsub();reqUnsub=null;} };
+  const fd=(...p)=>doc(db,"families",S.fid,...p);
+  const fc=(name)=>collection(db,"families",S.fid,name);
+  const onErr=e=>console.warn("Firestore:",e.code||e);
+  const refresh=()=>{ rebuild(subset("me"), fam); render(); };
+
+  function watch(){
+    stop(); S.phase="loading"; render();
+    unsubs.push(onSnapshot(fd("members",S.uid), async s=>{
+      if(s.exists()){
+        const wasApp=S.phase==="app";
+        S.members[S.uid]=s.data();
+        if(!wasApp){ S.phase="app"; watchFamily(); }
+        watchRequests(); render(); return;
+      }
+      if(S.phase==="app"){ stop(); S.phase="welcome"; S.fid=null; S.members={}; rebuild(emptyData(),emptyData()); try{ await deleteDoc(doc(db,"users",S.uid)); }catch(e){} render(); toast("Du bist nicht mehr Mitglied dieser Familie."); return; }
+      try{ const r=await getDoc(fd("requests",S.uid)); S.phase=r.exists()?"waiting":"welcome"; }catch(e){ S.phase="welcome"; }
+      render();
+    }, e=>{ onErr(e); S.phase="welcome"; render(); }));
+  }
+  function watchRequests(){
+    if(R().admin && !reqUnsub){
+      reqUnsub=onSnapshot(fc("requests"), qs=>{ S.requests=qs.docs.map(d=>({uid:d.id,...d.data()})); render(); }, onErr);
+    } else if(!R().admin && reqUnsub){ reqUnsub(); reqUnsub=null; S.requests=[]; }
+  }
+  function watchFamily(){
+    fam=emptyData(); privRev=-1;
+    unsubs.push(onSnapshot(doc(db,"families",S.fid), s=>{ S.family=s.data()||{}; render(); }, onErr));
+    unsubs.push(onSnapshot(fc("members"), qs=>{ const m={}; qs.forEach(d=>m[d.id]=d.data()); S.members=m; watchRequests(); render(); }, onErr));
+    unsubs.push(onSnapshot(fc("tasks"), qs=>{ fam.tasks=qs.docs.map(d=>d.data()); refresh(); }, onErr));
+    unsubs.push(onSnapshot(fc("projects"), qs=>{ fam.projects=qs.docs.map(d=>d.data()); refresh(); }, onErr));
+    unsubs.push(onSnapshot(query(fc("log"), where("orig",">=",todayNum()-200)), qs=>{
+      const l={}; qs.forEach(d=>{ const x=d.data(), e={}; for(const f of ["d","m","s","by"]) if(x[f]!=null) e[f]=x[f]; l[x.taskId+"|"+x.orig]=e; });
+      fam.log=l; refresh();
+    }, onErr));
+    unsubs.push(onSnapshot(fd("private",S.uid), s=>{
+      if(s.metadata.hasPendingWrites) return;
+      const p=s.exists()? s.data() : emptyData();
+      if((p.rev||0)>privRev){ privRev=p.rev||0; rebuild(p, fam); render(); }
+    }, onErr));
+  }
+  async function flushPrivate(){
+    if(!privPending) return; const data=privPending; privPending=null;
+    data.rev=Date.now(); privRev=data.rev;
+    try{ await setDoc(fd("private",S.uid), data); }catch(e){ onErr(e); toast("Persönliche Aufgaben konnten nicht gespeichert werden."); }
+  }
+
+  const be={
+    kind:"firebase",
+    async start(){
+      await new Promise((res,rej)=>{ const un=AU.onAuthStateChanged(auth,u=>{ if(u){ un(); S.uid=u.uid; S.isAnon=u.isAnonymous; S.email=u.email; res(); } else AU.signInAnonymously(auth).catch(e=>{ un(); rej(e); }); }); });
+      const us=await getDoc(doc(db,"users",S.uid));
+      S.fid=us.exists()? us.data().fid : null; S.familyName=us.exists()? (us.data().familyName||"") : "";
+      if(S.fid) watch(); else S.phase="welcome";
+    },
+    savePrivate(data){ privPending=data; clearTimeout(privTimer); privTimer=setTimeout(flushPrivate,600); },
+    async apply(ops){
+      const b=writeBatch(db);
+      for(const o of ops){
+        const coll=o.kind==="task"?"tasks":o.kind==="project"?"projects":"log";
+        const id=o.kind==="log"? o.id.replace("|","_") : o.id, ref=fd(coll,id);
+        if(o.op==="del") b.delete(ref);
+        else if(o.kind==="log"){ const [tid,orig]=o.id.split("|"); b.set(ref,{...o.data, taskId:tid, orig:+orig}); }
+        else { const x=clone(o.data); x.scope="fam"; if(o.kind==="task" && x.assignee===undefined) x.assignee=null; b.set(ref,x); }
+      }
+      await b.commit();
+    },
+    async createFamily(name,myName,pin,importData){
+      for(let attempt=0; attempt<3; attempt++){
+        const fid=uid()+uid(), code=genCode(), b=writeBatch(db);
+        b.set(doc(db,"families",fid),{name, code, createdBy:S.uid, createdAt:Date.now()});
+        b.set(doc(db,"families",fid,"members",S.uid),{name:myName, color:MCOL[0], rights:{admin:true,check:true,edit:true,assign:true}, joinedAt:Date.now()});
+        b.set(doc(db,"families",fid,"secret","admin"),{pinHash:await pinHash(fid,pin)});
+        b.set(doc(db,"joinCodes",code),{fid, familyName:name, createdBy:S.uid});
+        b.set(doc(db,"users",S.uid),{fid, familyName:name});
+        if(importData) b.set(doc(db,"families",fid,"private",S.uid),{...importData, rev:Date.now()});
+        try{ await b.commit(); S.fid=fid; S.familyName=name; watch(); return; }
+        catch(e){ if(attempt===2) throw e; }  // Code schon vergeben -> neuer Versuch
+      }
+    },
+    async requestJoin(code,name){
+      code=code.toUpperCase().replace(/[^A-Z0-9]/g,"");
+      const c=await getDoc(doc(db,"joinCodes",code)); if(!c.exists()) throw new Error("code");
+      const fid=c.data().fid, b=writeBatch(db);
+      b.set(doc(db,"families",fid,"requests",S.uid),{name, at:Date.now(), code});
+      b.set(doc(db,"users",S.uid),{fid, familyName:c.data().familyName||""});
+      await b.commit(); S.fid=fid; S.familyName=c.data().familyName||""; watch();
+    },
+    async cancelRequest(){ try{ await deleteDoc(fd("requests",S.uid)); }catch(e){} try{ await deleteDoc(doc(db,"users",S.uid)); }catch(e){} stop(); S.fid=null; S.phase="welcome"; render(); },
+    async approve(uid,name,rights){
+      const n=Object.keys(S.members).length, b=writeBatch(db);
+      b.set(fd("members",uid),{name, color:MCOL[n%MCOL.length], rights, joinedAt:Date.now()});
+      b.delete(fd("requests",uid)); await b.commit();
+    },
+    async reject(uid){ await deleteDoc(fd("requests",uid)); },
+    async updateMember(uid,patch){ await updateDoc(fd("members",uid), patch); },
+    async removeMember(uid){
+      const b=writeBatch(db);
+      for(const t of D.tasks) if(t.scope==="fam" && t.assignee===uid) b.update(fd("tasks",t.id),{assignee:null});
+      b.delete(fd("members",uid)); await b.commit();
+    },
+    async setPin(pin){ await setDoc(fd("secret","admin"),{pinHash:await pinHash(S.fid,pin)}); },
+    async readPrivate(uid,pin){
+      try{ await setDoc(fd("unlocks",S.uid),{hash:await pinHash(S.fid,pin), until:Timestamp.fromMillis(Date.now()+15*60000)}); }
+      catch(e){ throw new Error("pin"); }
+      const s=await getDoc(fd("private",uid)); return s.exists()? s.data() : emptyData();
+    },
+    async renameFamily(name){ await updateDoc(doc(db,"families",S.fid),{name}); },
+    async secure(email,pw){ const cred=AU.EmailAuthProvider.credential(email,pw); const r=await AU.linkWithCredential(auth.currentUser,cred); S.isAnon=false; S.email=r.user.email; },
+    async signIn(email,pw){ await AU.signInWithEmailAndPassword(auth,email,pw); location.reload(); },
+  };
+  return be;
+}
+
+/* =====================================================================
+   Darstellung
+   ===================================================================== */
+const ui={view:"today", day:todayNum(), reorder:false, welcome:null, msg:""};
+const $app=document.getElementById("app"), $foot=document.getElementById("foot");
+const SV=(d,extra="")=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"${extra}>${d}</svg>`;
+const ICON={
+  dots:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  sun:SV('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  cal:SV('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  list:SV('<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>'),
+  people:SV('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.6c2.8.2 5 2 5 5"/>'),
+  plus:SV('<path d="M12 5v14M5 12h14"/>'),
+  folder:SV('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/>'),
+  gear:SV('<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'),
+  up:SV('<path d="M6 15l6-6 6 6"/>',' stroke-width="2.4"'),
+  down:SV('<path d="M6 9l6 6 6-6"/>',' stroke-width="2.4"'),
+  lock:SV('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+};
+const VIEWNAME={today:"Heute", days:"Tagesansicht", family:"Familie", lib:"Aufgaben & Projekte"};
+
+function render(){
+  const inApp=S.phase==="app";
+  $foot.hidden=!inApp;
+  if(S.phase==="loading"){ $app.innerHTML=`<div class="empty" style="margin-top:40vh;transform:translateY(-50%)"><p>Lädt …</p></div>`; return; }
+  if(S.phase==="error"){ $app.innerHTML=errorHtml(); return; }
+  if(S.phase==="welcome"){ $app.innerHTML=welcomeHtml(); return; }
+  if(S.phase==="waiting"){ $app.innerHTML=waitingHtml(); return; }
+  if(ui.view==="family" && !S.members[S.uid]) ui.view="today";
+  $app.innerHTML = ui.view==="today" ? renderToday() : ui.view==="days" ? renderDays() : ui.view==="family" ? renderFamily() : renderLib();
+  document.getElementById("foot-label").textContent = VIEWNAME[ui.view];
+  const badge=document.getElementById("foot-badge"), n=S.requests.length;
+  badge.hidden=!n; badge.textContent=n;
+}
+
+/* ---------- Einstieg ---------- */
+function oldLocalData(){ try{ const x=JSON.parse(localStorage.getItem("tagwerk.v1")); if(x && Array.isArray(x.tasks) && (x.tasks.length||x.projects.length)) return {tasks:x.tasks, projects:x.projects||[], log:x.log||{}}; }catch(e){} return null; }
+function welcomeHtml(){
+  const demo=S.mode==="demo", w=ui.welcome;
+  let h=`<header class="top"><div><h1 class="top-title">Tagwerk</h1><div class="top-sub">Aufgaben für dich und deine Familie</div></div></header>`;
+  if(demo) h+=`<div class="box notice"><b>Demo-Modus</b><p class="note" style="margin-top:4px">Alles bleibt auf diesem Gerät. So kannst du ausprobieren, wie Familie, Rechte und Zuweisungen funktionieren. Für die echte Familie wird Firebase eingerichtet.</p></div>`;
+  if(!w){
+    h+=`<div class="choice">
+      <button class="choice-btn" data-a="welcome" data-v="create"><b>Familie gründen</b><span>Du wirst Admin und lädst die anderen mit einem Code ein.</span></button>
+      <button class="choice-btn" data-a="welcome" data-v="join"><b>Einer Familie beitreten</b><span>Gib den Code ein, den du bekommen hast. Ein Admin nimmt dich auf.</span></button>
+      ${!demo?`<button class="link-btn" data-a="welcome" data-v="restore" style="align-self:center">Ich habe meine Anmeldung gesichert und bin auf einem neuen Gerät</button>`:""}
+    </div>`;
+    return h;
+  }
+  const back=`<button class="btn" data-a="welcome" data-v="">Zurück</button>`;
+  if(w==="create"){
+    const old=oldLocalData();
+    h+=`<section class="sec form-card"><h2 class="day-title" style="margin-top:0">Familie gründen</h2>
+      <label class="field"><span>Name der Familie</span><input class="inp" id="w-fam" placeholder="z. B. Familie Huber" maxlength="60"></label>
+      <label class="field"><span>Dein Name</span><input class="inp" id="w-name" placeholder="z. B. Papa" maxlength="40"></label>
+      <label class="field"><span>Admin-Passwort</span><input class="inp" id="w-pin" type="password" autocomplete="new-password" placeholder="mindestens 4 Zeichen"></label>
+      <p class="note" style="margin:-8px 0 16px">Damit können Admins persönliche Aufgaben anderer einsehen. Merk es dir gut, es lässt sich nur durch einen Admin neu setzen.</p>
+      ${old?`<label class="radio" style="border:0;padding:0 0 14px"><input type="checkbox" id="w-import" checked><div><b>Bisherige Aufgaben übernehmen</b><small>${old.tasks.length} Aufgaben aus der bisherigen Version werden deine persönlichen Aufgaben.</small></div></label>`:""}
+      <p class="note err" id="w-err"></p>
+      <div class="sheet-actions">${back}<button class="btn primary" data-a="createFamily">Familie gründen</button></div></section>`;
+  } else if(w==="join"){
+    h+=`<section class="sec form-card"><h2 class="day-title" style="margin-top:0">Einer Familie beitreten</h2>
+      <label class="field"><span>Familien-Code</span><input class="inp code" id="w-code" placeholder="z. B. K7MQ2P" maxlength="9" autocapitalize="characters" autocomplete="off"></label>
+      <label class="field"><span>Dein Name</span><input class="inp" id="w-name" placeholder="z. B. Lena" maxlength="40"></label>
+      <p class="note err" id="w-err"></p>
+      <div class="sheet-actions">${back}<button class="btn primary" data-a="requestJoin">Anfrage senden</button></div></section>`;
+  } else if(w==="restore"){
+    h+=`<section class="sec form-card"><h2 class="day-title" style="margin-top:0">Auf neuem Gerät anmelden</h2>
+      <label class="field"><span>E-Mail</span><input class="inp" id="w-mail" type="email" autocomplete="username"></label>
+      <label class="field"><span>Passwort</span><input class="inp" id="w-pw" type="password" autocomplete="current-password"></label>
+      <p class="note err" id="w-err"></p>
+      <div class="sheet-actions">${back}<button class="btn primary" data-a="signIn">Anmelden</button></div></section>`;
+  }
+  return h;
+}
+function waitingHtml(){
+  return `<header class="top"><div><h1 class="top-title">Anfrage gesendet</h1><div class="top-sub">${esc(S.familyName||"Familie")}</div></div></header>
+    <div class="empty"><div class="big">Warte auf Freigabe</div><p>Sobald ein Admin deine Anfrage annimmt, erscheinen hier deine Aufgaben. Die App muss dafür nicht offen bleiben.</p>
+    <button class="btn" data-a="cancelRequest">Anfrage zurückziehen</button></div>
+    ${S.mode==="demo"?`<div class="box notice" style="margin-top:22px"><b>Demo</b><p class="note">Wechsle zu einer Person mit Admin-Rechten, um die Anfrage anzunehmen.</p><div class="chips" style="margin-top:10px">${B.people().filter(p=>p.member).map(p=>`<button class="chip" data-a="demoSwitch" data-v="${p.uid}">${esc(p.name)}</button>`).join("")}</div></div>`:""}`;
+}
+function errorHtml(){
+  return `<header class="top"><div><h1 class="top-title">Keine Verbindung</h1></div></header>
+   <div class="empty"><div class="big">Tagwerk konnte nicht starten</div><p>${esc(S.error)}</p><button class="btn primary" data-a="reload">Erneut versuchen</button></div>`;
+}
+
+/* ---------- Zeilen ---------- */
+function projProgress(pid, pOrig){
+  let done=0,total=0;
+  for(const t of D.tasks.filter(x=>x.projectId===pid)){
+    const key=t.id+"|"+(pOrig+(t.offset|0)), L=D.log[key];
+    if(L&&L.s) continue; total++; if(L&&L.d!=null) done++;
+  }
+  return {done,total};
+}
+function rowHtml(o, meta, opts={}){
+  const m=[], t=o.t;
+  if(meta) m.push(meta);
+  if(o.moved && o.eff!==o.orig && !meta) m.push("verschoben von "+fmtShort(o.orig));
+  if(t.scope==="fam"){
+    if(o.done){ const L=D.log[o.key]||{}; if(L.by) m.push("erledigt von "+(L.by===S.uid?"dir":esc(nameOfNom(L.by)))); }
+    else if(opts.showAssignee) m.push(t.assignee? "für "+esc(nameOfNom(t.assignee)) : "für alle");
+    else m.push(t.assignee===S.uid? "Familie, für dich" : "Familie");
+  }
+  if(o.done && o.doneOn!=null && o.doneOn!==o.eff) m.push(fmtRel(o.doneOn));
+  const act=canAct(t);
+  return `<div class="row${o.done?" done":""}${t.prio===1&&!o.done?" hi":""}">
+    <button class="check${o.done?" on":""}${act?"":" locked"}" data-a="toggle" data-k="${o.key}" aria-pressed="${o.done}" ${act?"":'aria-disabled="true"'} aria-label="${esc(t.title)} ${o.done?"als offen markieren":"abhaken"}">${act||o.done?ICON.check:""}</button>
+    <button class="row-main" data-a="occ" data-k="${o.key}">
+      <div class="row-title">${esc(t.title)}</div>${m.length?`<div class="row-meta">${m.join(", ")}</div>`:""}
+    </button>
+    <button class="more" data-a="occ" data-k="${o.key}" aria-label="Details zu ${esc(t.title)}">${ICON.dots}</button>
+  </div>`;
+}
+function overMeta(o){ return `<span class="warn">fällig seit ${fmtRel(o.eff)}</span>`; }
+function blocksHtml(items, opts){
+  const blocks=new Map();
+  for(const it of items){
+    const t=it.o.t, pr=t.projectId && project(t.projectId);
+    if(pr){ const P=it.o.orig-(t.offset|0), k="p|"+pr.id+"|"+P; if(!blocks.has(k)) blocks.set(k,{ref:pr,P,items:[]}); blocks.get(k).items.push(it); }
+    else blocks.set("t|"+it.o.key,{ref:t,P:it.o.eff,items:[it]});
+  }
+  // persönliche und Familien-Einträge gleicher Priorität: nach Reihenfolge, dann Datum
+  const arr=[...blocks.values()].sort((a,b)=>(a.ref.prio-b.ref.prio)||(a.ref.scope===b.ref.scope?a.ref.order-b.ref.order:0)||(a.P-b.P));
+  return arr.map(b=>{
+    if(b.ref.name===undefined){ const it=b.items[0]; return rowHtml(it.o, it.over?overMeta(it.o):"", opts); }
+    const pg=projProgress(b.ref.id,b.P);
+    const rows=b.items.sort((x,y)=>byPrio(x.o.t,y.o.t)||(x.o.eff-y.o.eff)).map(it=>rowHtml(it.o, it.over?overMeta(it.o):"", opts)).join("");
+    return `<div class="pblock" style="--pc:${b.ref.color}"><div class="phead"><span class="pdot"></span><b>${esc(b.ref.name)}</b>${b.ref.scope==="fam"&&!(opts&&opts.showAssignee)?'<span class="tag">Familie</span>':""}<span class="pcount">${pg.done} von ${pg.total}</span></div>${rows}</div>`;
+  }).join("");
+}
+function dayListHtml(day, filter, opts={}){
+  const T=todayNum(), isToday=day===T;
+  const {due,overdue,missed}=dayModel(day, filter);
+  const open=[...overdue.map(o=>({o,over:true})), ...due.filter(o=>!o.done).map(o=>({o}))];
+  const done=due.filter(o=>o.done);
+  let h="";
+  if(!D.tasks.length && !opts.showAssignee){
+    return `<div class="empty"><div class="big">Noch keine Aufgaben</div><p>Leg die erste an, zum Beispiel „Pflanzen gießen“ jeden Dienstag.</p><button class="btn primary" data-a="newTask">Aufgabe anlegen</button></div>`;
+  }
+  if(open.length) h+=`<div class="list"${opts.tight?"":' style="margin-top:14px"'}>${blocksHtml(open,opts)}</div>`;
+  else h+=`<div class="empty"${opts.tight?' style="margin-top:0"':""}><div class="big">${done.length?"Alles erledigt.":"Nichts geplant."}</div><p>${done.length?"Für "+(isToday?"heute":"diesen Tag")+" ist alles abgehakt.":"Für "+(isToday?"heute":"diesen Tag")+" steht keine Aufgabe an."}</p></div>`;
+  if(done.length){
+    h+=`<section class="sec"><details class="done-wrap"${open.length?"":" open"}><summary>Erledigt (${done.length})</summary><div class="list">${done.sort((a,b)=>byPrio(a.t,b.t)).map(o=>rowHtml(o, o.t.projectId&&project(o.t.projectId)&&o.t.scope!=="fam"?esc(project(o.t.projectId).name):"", opts)).join("")}</div></details></section>`;
+  }
+  if(missed.length){
+    h+=`<section class="sec"><details class="done-wrap"><summary>Verpasst, nicht verschiebbar (${missed.length})</summary><div class="list">${missed.map(o=>rowHtml(o,"war am "+fmtShort(o.eff),opts)).join("")}</div></details></section>`;
+  }
+  return h;
+}
+function ringHtml(done,total){
+  const Rr=22, C=2*Math.PI*Rr, f=total?done/total:0;
+  return `<div class="ring" role="img" aria-label="${done} von ${total} erledigt"><svg viewBox="0 0 54 54"><circle class="track" cx="27" cy="27" r="${Rr}"/><circle class="val" cx="27" cy="27" r="${Rr}" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="${(C*(1-f)).toFixed(2)}"/></svg><span>${done}/${total}</span></div>`;
+}
+
+/* ---------- Ansichten ---------- */
+function renderToday(){
+  const T=todayNum(), p=parts(T);
+  const {due,overdue}=dayModel(T, inToday);
+  const total=due.length+overdue.length, doneN=due.filter(o=>o.done).length, openN=total-doneN;
+  const sub = !total ? "Heute steht nichts an" : openN===0 ? "Alles erledigt" : openN===1 ? "1 Aufgabe offen" : openN+" Aufgaben offen";
+  let h=`<header class="top"><div><h1 class="top-title">${WDL[p.wd]}, ${p.d}. ${MON[p.m-1]}</h1><div class="top-sub">${sub}</div></div>${total?ringHtml(doneN,total):""}</header>`;
+  if(S.requests.length) h+=`<button class="notice-btn" data-a="go" data-v="family">${S.requests.length===1?"1 Person möchte":S.requests.length+" Personen möchten"} der Familie beitreten</button>`;
+  h+=dayListHtml(T, inToday);
+  if(!R().check && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Familien-Aufgaben siehst du unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
+  return h;
+}
+function renderDays(){
+  const T=todayNum(), day=ui.day, p=parts(day), mon=day-p.wd;
+  let h=`<header class="top"><div><h1 class="top-title">Tagesansicht</h1><div class="top-sub">${MON[parts(mon).m-1]} ${parts(mon).y}</div></div></header>`;
+  h+=`<div class="week" role="group" aria-label="Woche">`;
+  for(let i=0;i<7;i++){
+    const dn=mon+i, q=parts(dn), m=dayModel(dn, inToday);
+    const items=m.due.length+(dn===T?m.overdue.length:0), dd=m.due.filter(o=>o.done).length;
+    h+=`<button class="wk${dn===T?" is-today":""}${dn===day?" is-sel":""}" data-a="day" data-v="${dn}" aria-label="${WDL[q.wd]}, ${q.d}. ${MON[q.m-1]}: ${items} Aufgaben"${dn===day?' aria-current="date"':""}>
+      <small>${WD[q.wd]}</small><b>${q.d}</b><span class="dots">${Array.from({length:Math.min(items,4)},()=>`<i class="${items&&dd===items?"all":""}"></i>`).join("")}</span></button>`;
+  }
+  h+=`</div><div class="week-nav"><button class="link-btn" data-a="day" data-v="${day-7}">Vorige Woche</button>${day!==T?`<button class="link-btn" data-a="day" data-v="${T}">Heute</button>`:""}<button class="link-btn" data-a="day" data-v="${day+7}">Nächste Woche</button></div>`;
+  h+=`<h2 class="day-title">${day===T?"Heute, ":day===T+1?"Morgen, ":day===T-1?"Gestern, ":""}${WDL[p.wd]}, ${p.d}. ${MON[p.m-1]}</h2>`;
+  return h+dayListHtml(day, inToday, {tight:true});
+}
+function renderFamily(){
+  const r=R(), T=todayNum(), mem=Object.entries(S.members).sort((a,b)=>(a[0]===S.uid?-1:b[0]===S.uid?1:a[1].name.localeCompare(b[1].name)));
+  let h=`<header class="top"><div><h1 class="top-title">${esc((S.family&&S.family.name)||"Familie")}</h1><div class="top-sub">${mem.length} ${mem.length===1?"Mitglied":"Mitglieder"}, du: ${rightsSummary(meM())}</div></div></header>`;
+  if(r.admin && S.requests.length){
+    h+=`<section class="sec"><div class="sec-head"><h2>Möchten beitreten</h2><span class="count">${S.requests.length}</span></div><div class="list warn">${S.requests.map(q=>`<button class="lib-row" data-a="request" data-v="${q.uid}"><div><div class="row-title">${esc(q.name)}</div><div class="row-meta">Anfrage vom ${(d=>fmtShort(dnOf(d.getFullYear(),d.getMonth()+1,d.getDate())))(new Date(q.at))}</div></div><span class="chev">Prüfen ›</span></button>`).join("")}</div></section>`;
+  }
+  h+=`<section class="sec"><div class="sec-head"><h2>Heute in der Familie</h2></div>${dayListHtml(T, isFam, {showAssignee:true, tight:true})}</section>`;
+  h+=`<section class="sec"><div class="sec-head"><h2>Mitglieder</h2></div><div class="list">${mem.map(([uid,m])=>`<button class="lib-row" data-a="member" data-v="${uid}"><div class="mem"><span class="avatar" style="background:${m.color||"#888"}">${esc((m.name||"?").slice(0,1).toUpperCase())}</span><div><div class="row-title">${esc(m.name)}${uid===S.uid?' <span class="tag">du</span>':""}</div><div class="row-meta">${rightsSummary(m)}</div></div></div><span class="chev">›</span></button>`).join("")}</div></section>`;
+  if(r.admin){
+    const code=(S.family&&S.family.code)||"";
+    h+=`<section class="sec"><div class="sec-head"><h2>Einladen</h2></div><div class="box"><span class="lbl">Familien-Code</span><div class="code-big">${esc(code.slice(0,3)+" "+code.slice(3))}</div>
+      <p class="note">Schick diesen Code und den Link zur App an die Person. Sie gibt ihn beim Öffnen unter „Einer Familie beitreten“ ein. Du nimmst sie danach hier auf.</p>
+      <div class="toolbar"><button class="btn" data-a="copyInvite">Einladung kopieren</button><button class="btn" data-a="changePin">Admin-Passwort ändern</button></div></div></section>`;
+    if(S.mode==="demo") h+=`<div class="toolbar"><button class="btn" data-a="demoRequest">Demo: Beitrittsanfrage simulieren</button></div>`;
+  }
+  return h;
+}
+function prioTag(x){ return x.prio===1?'<span class="tag hi">Hoch</span>':x.prio===3?'<span class="tag">Niedrig</span>':""; }
+function arrowsHtml(kind,x){
+  const n=neighbours(x), name=esc(kind==="p"?x.name:x.title);
+  return `<span class="arrows"><button data-a="up" data-kind="${kind}" data-v="${x.id}" ${n.up?"":"disabled"} aria-label="${name} nach oben">${ICON.up}</button><button data-a="down" data-kind="${kind}" data-v="${x.id}" ${n.down?"":"disabled"} aria-label="${name} nach unten">${ICON.down}</button></span>`;
+}
+function libTaskRow(t){
+  const ed=canEditItem(t);
+  let meta=(t.projectId ? offsetText(t.offset) : recText(t.rec)) + (t.movable?", verschiebbar":", fester Termin");
+  if(t.scope==="fam") meta+=", "+(t.assignee? "für "+esc(nameOfNom(t.assignee)) : "für alle");
+  const inner=`<div><div class="row-title">${esc(t.title)}${t.projectId?prioTag(t):""}</div><div class="row-meta">${meta}</div></div>`;
+  if(ui.reorder && ed) return `<div class="lib-row${t.prio===1?" hi":""}">${inner}${arrowsHtml("t",t)}</div>`;
+  if(!ed) return `<button class="lib-row${t.prio===1?" hi":""}" data-a="viewTask" data-v="${t.id}">${inner}<span class="chev">${R().assign?"Zuweisen ›":""}</span></button>`;
+  return `<button class="lib-row${t.prio===1?" hi":""}" data-a="editTask" data-v="${t.id}">${inner}<span class="chev">›</span></button>`;
+}
+function libScopeHtml(scope){
+  const blocks=[...D.projects, ...D.tasks.filter(t=>!t.projectId)].filter(x=>x.scope===scope).sort(byPrio);
+  const canEd = scope==="me" || R().edit;
+  if(!blocks.length) return `<div class="empty" style="margin-top:0"><p>${scope==="me"?"Noch keine persönlichen Aufgaben. Die siehst nur du.":"Noch keine Familien-Aufgaben."}</p>${canEd?`<div class="toolbar" style="justify-content:center"><button class="btn primary" data-a="newTask" data-scope="${scope}">Aufgabe anlegen</button><button class="btn" data-a="newProject" data-scope="${scope}">Projekt anlegen</button></div>`:""}</div>`;
+  let h="";
+  for(const [pv,pl] of PRIO){
+    const group=blocks.filter(x=>x.prio===pv); if(!group.length) continue;
+    h+=`<div class="prio-lbl">Priorität ${pl.toLowerCase()}</div><div class="list">`;
+    for(const x of group){
+      if(x.name!==undefined){
+        const ts=D.tasks.filter(t=>t.projectId===x.id).sort(byPrio);
+        const head=`<div><div class="row-title" style="font-weight:700"><span class="pdot" style="display:inline-block;margin-right:8px;vertical-align:0"></span>${esc(x.name)}</div><div class="row-meta">Projekt, ${recText(x.rec)}</div></div>`;
+        h+=`<div class="pblock" style="--pc:${x.color}">`;
+        h+= ui.reorder&&canEd ? `<div class="lib-row phead-btn">${head}${arrowsHtml("p",x)}</div>` : canEd ? `<button class="lib-row phead-btn" data-a="editProject" data-v="${x.id}">${head}<span class="chev">›</span></button>` : `<div class="lib-row phead-btn">${head}</div>`;
+        h+= ts.map(libTaskRow).join("");
+        if(!ui.reorder && canEd) h+=`<button class="add-in" data-a="newTask" data-v="${x.id}" data-scope="${scope}">+ Aufgabe in diesem Projekt</button>`;
+        h+=`</div>`;
+      } else h+=libTaskRow(x);
+    }
+    h+=`</div>`;
+  }
+  return h;
+}
+function renderLib(){
+  const r=R();
+  let h=`<header class="top"><div><h1 class="top-title">Aufgaben & Projekte</h1><div class="top-sub">In dieser Reihenfolge erscheinen sie in der Tagesansicht.</div></div></header>`;
+  h+=`<div class="toolbar"><button class="btn${ui.reorder?" primary":""}" data-a="reorderToggle">${ui.reorder?"Fertig":"Reihenfolge ändern"}</button>${ui.reorder?"":`<button class="btn" data-a="newTask">+ Aufgabe</button><button class="btn" data-a="newProject">+ Projekt</button>`}</div>`;
+  if(ui.reorder) h+=`<p class="note">Verschieben geht innerhalb der gleichen Priorität. Um etwas in eine andere Gruppe zu bringen, ändere seine Priorität.</p>`;
+  h+=`<section class="sec"><div class="sec-head"><h2>${ICON.lock.replace("<svg",'<svg class="h-ic"')}Persönlich</h2><span class="count">nur für dich</span></div>${libScopeHtml("me")}</section>`;
+  h+=`<section class="sec"><div class="sec-head"><h2>${ICON.people.replace("<svg",'<svg class="h-ic"')}Familie</h2><span class="count">${r.edit?"du darfst planen":"nur ansehen"}</span></div>${libScopeHtml("fam")}</section>`;
+  return h;
+}
+
+/* ---------- Wiederholungsregeln ---------- */
+function recMatch(r,dn){
+  if(!r || dn<r.start) return false;
+  if(r.type==="once") return dn===r.start;
+  if(r.end!=null && dn>r.end) return false;
+  const ev=Math.max(1, (r.every|0)||1), p=parts(dn);
+  switch(r.type){
+    case "daily": return (dn-r.start)%ev===0;
+    case "weekly":{
+      if(!r.weekdays.includes(p.wd)) return false;
+      const s=parts(r.start); const w=((dn-p.wd)-(r.start-s.wd))/7;
+      return w%ev===0;
+    }
+    case "monthly":{
+      const s=parts(r.start); const mo=(p.y-s.y)*12+(p.m-s.m);
+      if(mo%ev) return false;
+      return r.monthDays.includes(p.d) || (r.monthDays.includes(32) && p.d===lastDayOf(p.y,p.m));
+    }
+    case "yearly":{
+      const s=parts(r.start); if((p.y-s.y)%ev) return false;
+      return r.yearDates.some(x=>x.m===p.m && x.d===p.d);
+    }
+  }
+  return false;
+}
+function recText(r){
+  const ev=Math.max(1,(r.every|0)||1); let t="";
+  switch(r.type){
+    case "once": return "Einmalig am "+fmtLong(r.start);
+    case "daily": t= ev===1?"Täglich":`Alle ${ev} Tage`; break;
+    case "weekly":{ const ds=r.weekdays.slice().sort().map(i=>WD[i]); t=(ev===1?"Jede Woche":`Alle ${ev} Wochen`)+(ds.length?": "+ds.join(", "):""); break; }
+    case "monthly":{ const ds=r.monthDays.slice().sort((a,b)=>a-b).map(d=>d===32?"letzten Tag":d+"."); t=(ev===1?"Monatlich":`Alle ${ev} Monate`)+(ds.length?" am "+joinDe(ds):""); break; }
+    case "yearly":{ const ds=r.yearDates.slice().sort((a,b)=>a.m-b.m||a.d-b.d).map(x=>x.d+"."+x.m+"."); t=(ev===1?"Jährlich":`Alle ${ev} Jahre`)+(ds.length?" am "+joinDe(ds):""); break; }
+  }
+  if(r.end!=null) t+=" bis "+fmtShort(r.end);
+  return t;
+}
+function offsetText(o){ o=o|0; if(o===0) return "am Projekttermin"; return Math.abs(o)+(Math.abs(o)===1?" Tag ":" Tage ")+(o>0?"nach":"vor")+" dem Projekttermin"; }
+
+function project(id){ return D.projects.find(p=>p.id===id); }
+function matcherFor(t){
+  if(t.projectId){ const p=project(t.projectId); const off=t.offset|0; return p? (dn=>recMatch(p.rec, dn-off)) : (()=>false); }
+  return dn=>recMatch(t.rec,dn);
+}
+function scheduleText(t){
+  if(t.projectId){ const p=project(t.projectId); return p? offsetText(t.offset)+" ("+recText(p.rec)+")" : "Projekt fehlt"; }
+  return recText(t.rec);
+}
+function shiftSum(t,orig){ let s=0; for(const x of t.shifts||[]) if(orig>x.after) s+=x.delta; return s; }
+
+/* ---------- Termine einer Aufgabe berechnen ----------
+   orig = Termin laut Regel, base = orig + Serienverschiebung, eff = tatsächlicher Tag */
+function occurrences(t, from, to){
+  const match=matcherFor(t), set=new Set();
+  for(let dn=from; dn<=to; dn++) if(dn>=t.created && match(dn)) set.add(dn);
+  const pre=t.id+"|";
+  for(const k in D.log){ if(k.startsWith(pre)){ const o=+k.slice(pre.length); if(o>=t.created && match(o)) set.add(o); } }
+  const list=[...set].sort((a,b)=>a-b).map(orig=>{
+    const key=t.id+"|"+orig, L=D.log[key]||{}, base=orig+shiftSum(t,orig);
+    return {t, key, orig, base, eff:(L.m!=null?L.m:base), moved:L.m!=null, done:L.d!=null, doneOn:L.d, skip:!!L.s, replaced:null};
+  });
+  if(t.movable && t.follow==="replace"){
+    const rd=Math.max(0,t.replaceDays|0);
+    for(let i=0;i<list.length;i++){
+      const o=list[i]; if(!o.moved || o.eff<=o.base || o.skip) continue;
+      for(let j=i+1;j<list.length;j++){
+        const q=list[j];
+        if(q.base - o.eff <= rd){ if(!q.done && !q.replaced) q.replaced=o; } else break;
+      }
+    }
+  }
+  return list;
+}
+
+/* ---------- Was steht an einem Tag an? ---------- */
+function dayModel(day, filter){
+  const T=todayNum(), due=[], overdue=[], missed=[];
+  for(const t of (filter? D.tasks.filter(filter) : D.tasks)){
+    const occ=occurrences(t, Math.min(day,T)-75, day+5).filter(o=>!o.replaced && !o.skip);
+    let hideAfter=null;
+    if(day===T){
+      const pending=occ.filter(o=>!o.done && o.eff<T && o.eff>=T-60);
+      if(pending.length){
+        if(t.movable){
+          if(t.follow==="keep") overdue.push(...pending);
+          else if(t.follow==="shift"){ overdue.push(pending[0]); hideAfter=pending[0].orig; }
+          else { // replace: nur der jüngste offene Termin zählt, und nur wenn heute nicht schon einer fällig ist
+            const last=pending[pending.length-1];
+            const newer=occ.some(o=>o.orig>last.orig && o.eff<=T);
+            if(!newer) overdue.push(last);
+          }
+        } else missed.push(...pending.filter(o=>o.eff>=T-3));
+      }
+    }
+    for(const o of occ) if(o.eff===day && !(hideAfter!=null && o.orig>hideAfter && !o.done)) due.push(o);
+  }
+  return {due, overdue, missed};
+}
+
+
+/* =====================================================================
+   Bottom Sheet & Formulare
+   ===================================================================== */
+const $scrim=document.getElementById("scrim"), $sheet=document.getElementById("sheet");
+let sheetOpen=false, sheet=null;
+function openSheet(s){ hideToast(); sheet=s; sheetOpen=true; renderSheet(); $scrim.classList.add("open"); $scrim.setAttribute("aria-hidden","false"); $sheet.scrollTop=0;
+  setTimeout(()=>{ const f=$sheet.querySelector("[data-autofocus]"); if(f) f.focus(); else $sheet.querySelector("button")?.focus(); },60); }
+function closeSheet(){ sheetOpen=false; sheet=null; $scrim.classList.remove("open"); $scrim.setAttribute("aria-hidden","true"); }
+function renderSheet(){
+  if(!sheet) return;
+  const st=$sheet.scrollTop, k=sheet.kind;
+  const f={task:taskForm, project:projectForm, occ:occSheet, settings:settingsSheet, menu:menuSheet, member:memberSheet, request:requestSheet, priv:privSheet, pin:pinSheet, viewTask:viewTaskSheet}[k];
+  $sheet.innerHTML = f? f() : "";
+  $sheet.scrollTop=st;
+}
+function head(title){ return `<div class="sheet-head"><h2>${title}</h2><button class="icon-btn" data-a="close" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`; }
+function prioSeg(v){ return `<div class="field"><span>Priorität</span><div class="seg" role="radiogroup">${PRIO.map(([n,l])=>`<button role="radio" aria-checked="${v===n}" class="${v===n?"on":""}" data-a="prio" data-v="${n}">${l}</button>`).join("")}</div></div>`; }
+function scopeSeg(d){
+  if(d.id) return `<p class="note" style="margin:-6px 0 16px">${d.scope==="fam"?"Familien-Aufgabe: alle in der Familie sehen sie.":"Persönlich: nur du siehst das."}</p>`;
+  if(!R().edit) return "";
+  return `<div class="field"><span>Für wen</span><div class="seg" role="radiogroup">${[["me","Nur für mich"],["fam","Familie"]].map(([v,l])=>`<button role="radio" aria-checked="${d.scope===v}" class="${d.scope===v?"on":""}" data-a="scope" data-v="${v}">${l}</button>`).join("")}</div></div>`;
+}
+
+/* ---------- Menü ---------- */
+function menuSheet(){
+  const item=(a,v,icon,label,on,badge)=>`<button class="nav-item${on?" on":""}" data-a="${a}"${v?` data-v="${v}"`:""}${on?' aria-current="page"':""}>${ICON[icon]}<span>${label}</span>${badge?`<span class="badge">${badge}</span>`:""}</button>`;
+  return head("Menü")+`<div class="nav-group navlist">
+      ${item("go","today","sun","Heute",ui.view==="today")}
+      ${item("go","days","cal","Tagesansicht",ui.view==="days")}
+      ${item("go","family","people","Familie",ui.view==="family",S.requests.length)}
+      ${item("go","lib","list","Aufgaben & Projekte",ui.view==="lib")}
+    </div><div class="nav-group navlist">
+      ${item("newTask","","plus","Neue Aufgabe")}
+      ${item("newProject","","folder","Neues Projekt")}
+    </div><div class="nav-group navlist">
+      ${item("settings","","gear","Einstellungen & Sicherung")}
+    </div>`;
+}
+
+/* ---------- Wiederholungs-Editor ---------- */
+function recEditor(r){
+  const types=[["once","Einmalig"],["daily","Täglich"],["weekly","Wöchentlich"],["monthly","Monatlich"],["yearly","Jährlich"]];
+  let h=`<div class="field"><span>Wiederholung</span><div class="seg" role="radiogroup">${types.map(([v,l])=>`<button role="radio" aria-checked="${r.type===v}" class="${r.type===v?"on":""}" data-a="rectype" data-v="${v}">${l}</button>`).join("")}</div></div>`;
+  if(r.type==="once"){
+    h+=`<label class="field"><span>Datum</span><input class="inp" type="date" data-bind="rec.start" data-type="date" value="${iso(r.start)}"></label>`;
+    return h;
+  }
+  const unit={daily:["Tag","Tage"],weekly:["Woche","Wochen"],monthly:["Monat","Monate"],yearly:["Jahr","Jahre"]}[r.type];
+  h+=`<div class="inline-row"><span>${(r.every|0)>1?"Alle":(r.type==="weekly"?"Jede":"Jeden")}</span><input class="inp sm" type="number" min="1" max="99" inputmode="numeric" data-bind="rec.every" data-type="num" data-live value="${r.every||1}"><span>${(r.every|0)>1?unit[1]:unit[0]}</span></div>`;
+  if(r.type==="weekly"){
+    h+=`<div class="field"><span>An diesen Tagen</span><div class="chips days">${WD.map((w,i)=>`<button class="chip${r.weekdays.includes(i)?" on":""}" aria-pressed="${r.weekdays.includes(i)}" data-a="wd" data-v="${i}">${w}</button>`).join("")}</div></div>`;
+  }
+  if(r.type==="monthly"){
+    let g=""; for(let d=1;d<=31;d++) g+=`<button class="chip${r.monthDays.includes(d)?" on":""}" aria-pressed="${r.monthDays.includes(d)}" data-a="md" data-v="${d}">${d}</button>`;
+    g+=`<button class="chip wide${r.monthDays.includes(32)?" on":""}" aria-pressed="${r.monthDays.includes(32)}" data-a="md" data-v="32">Letzter</button>`;
+    h+=`<div class="field"><span>An diesen Tagen im Monat</span><div class="mgrid">${g}</div>${r.monthDays.some(d=>d>28&&d<32)?`<p class="note">Monate ohne den 29., 30. oder 31. werden an diesem Tag übersprungen. Für „immer am Monatsende“ nimm „Letzter“.</p>`:""}</div>`;
+  }
+  if(r.type==="yearly"){
+    h+=`<div class="field"><span>An diesen Tagen im Jahr</span>`;
+    r.yearDates.forEach((x,i)=>{
+      h+=`<div class="yrow"><select class="inp inline" data-a="yd" data-i="${i}" data-f="d" aria-label="Tag">${Array.from({length:31},(_,k)=>`<option value="${k+1}"${x.d===k+1?" selected":""}>${k+1}.</option>`).join("")}</select>
+        <select class="inp inline" data-a="yd" data-i="${i}" data-f="m" aria-label="Monat">${MON.map((mn,k)=>`<option value="${k+1}"${x.m===k+1?" selected":""}>${mn}</option>`).join("")}</select>
+        ${r.yearDates.length>1?`<button class="more" data-a="rmyd" data-v="${i}" aria-label="Datum entfernen">✕</button>`:""}</div>`;
+    });
+    h+=`<button class="link-btn" data-a="addyd">+ Weiteres Datum</button></div>`;
+  }
+  h+=`<div class="inline-row" style="align-items:flex-end"><label style="flex:1;min-width:150px"><span class="lbl">Beginnt am</span><input class="inp" type="date" data-bind="rec.start" data-type="date" value="${iso(r.start)}"></label>
+     <label style="flex:1;min-width:150px"><span class="lbl">Endet am (optional)</span><input class="inp" type="date" data-bind="rec.end" data-type="date" value="${r.end!=null?iso(r.end):""}"></label></div>`;
+  return h;
+}
+function recValid(r){
+  if(r.type==="weekly" && !r.weekdays.length) return "Wähle mindestens einen Wochentag.";
+  if(r.type==="monthly" && !r.monthDays.length) return "Wähle mindestens einen Tag im Monat.";
+  if(r.end!=null && r.end<r.start) return "Das Ende liegt vor dem Beginn.";
+  return "";
+}
+function nextN(match, from, n){ const out=[]; for(let dn=from; dn<from+800 && out.length<n; dn++) if(match(dn)) out.push(dn); return out; }
+
+
+
+/* ---------- Aufgabe ---------- */
+function newTaskDraft(projectId, scope){
+  const T=todayNum(), p=projectId&&project(projectId);
+  const sc = p ? p.scope : (scope || "me");
+  return {id:null, title:"", scope:(sc==="fam"&&!R().edit)?"me":sc, projectId:projectId||null, offset:0, rec:newRec("weekly",T), movable:true, follow:"replace", replaceDays:2, prio:2, assignee:null};
+}
+function taskForm(){
+  const d=sheet.draft, isNew=!d.id, fam=d.scope==="fam";
+  let h=head(isNew?"Neue Aufgabe":"Aufgabe bearbeiten");
+  h+=`<label class="field"><span>Name</span><input class="inp" data-bind="title" data-autofocus value="${esc(d.title)}" placeholder="z. B. Pflanzen gießen" autocomplete="off" maxlength="120"></label>`;
+  h+=scopeSeg(d);
+  if(fam){
+    if(R().assign){
+      h+=`<label class="field"><span>Zuständig</span><select class="inp" data-bind="assignee" data-type="str"><option value="">Alle, wer zuerst kommt</option>${assignable().map(m=>`<option value="${m.uid}"${d.assignee===m.uid?" selected":""}>${esc(m.uid===S.uid?m.name+" (du)":m.name)}</option>`).join("")}</select></label>`;
+    } else if(d.assignee) h+=`<p class="note">Zuständig: ${esc(nameOfNom(d.assignee))}</p>`;
+  }
+  h+=prioSeg(d.prio);
+  const projs=D.projects.filter(p=>p.scope===d.scope).sort(byPrio);
+  h+=`<label class="field"><span>Gehört zu</span><select class="inp" data-bind="projectId" data-type="str" data-rerender><option value="">keinem Projekt (eigene Termine)</option>${projs.map(p=>`<option value="${p.id}"${d.projectId===p.id?" selected":""}>Projekt: ${esc(p.name)}</option>`).join("")}</select></label>`;
+  if(d.projectId){
+    const p=project(d.projectId), o=d.offset|0;
+    h+=`<div class="box"><span class="lbl">Fällig</span><div class="inline-row" style="margin:0"><input class="inp sm" type="number" min="0" max="365" inputmode="numeric" data-a="offN" data-live value="${Math.abs(o)}"><span>Tage</span>
+      <select class="inp inline" data-a="offDir"><option value="1"${o>=0?" selected":""}>nach</option><option value="-1"${o<0?" selected":""}>vor</option></select><span>dem Projekttermin</span></div>
+      <p class="note">Projekttermin: ${p?dot(recText(p.rec)):""} 0 Tage heißt: am selben Tag.</p></div>`;
+  } else h+=recEditor(d.rec);
+
+  h+=`<div class="box"><div class="switch-row"><div><b>Verschiebbar</b><small>Ein Termin kann auf einen anderen Tag gelegt werden. Nicht erledigte Termine wandern auf heute.</small></div>
+     <label class="switch"><input type="checkbox" data-bind="movable" data-type="bool" data-rerender ${d.movable?"checked":""} aria-label="Verschiebbar"><i></i></label></div>`;
+  if(d.movable){
+    h+=`<div style="margin-top:14px"><span class="lbl">Wenn ein Termin später erledigt wird, passiert mit dem nächsten Termin:</span>
+      <label class="radio"><input type="radio" name="follow" value="replace" data-bind="follow" data-type="str" data-rerender ${d.follow==="replace"?"checked":""}><div><b>Er entfällt, wenn der verschobene zu nah dran liegt</b>
+        <small>Liegt der verschobene Termin <input class="inp sm" type="number" min="0" max="365" inputmode="numeric" data-bind="replaceDays" data-type="num" data-live value="${d.replaceDays|0}" aria-label="Tage" style="width:4em;padding:4px"> Tage oder weniger vor dem nächsten, ersetzt er ihn.</small></div></label>
+      <label class="radio"><input type="radio" name="follow" value="keep" data-bind="follow" data-type="str" data-rerender ${d.follow==="keep"?"checked":""}><div><b>Er bleibt immer bestehen</b><small>Jeder Termin muss einzeln erledigt werden, verpasste sammeln sich an.</small></div></label>
+      <label class="radio"><input type="radio" name="follow" value="shift" data-bind="follow" data-type="str" data-rerender ${d.follow==="shift"?"checked":""}><div><b>Die ganze Serie rückt mit</b><small>Alle folgenden Termine verschieben sich um gleich viele Tage.</small></div></label>
+      <div class="preview" id="preview">${followPreview(d)}</div></div>`;
+  }
+  h+=`</div><p class="note err" id="form-err"></p>`;
+  h+=`<div class="sheet-actions">${isNew?"":`<button class="btn danger" data-a="delTask">Löschen</button>`}<span class="grow"></span><button class="btn primary" data-a="saveTask">${isNew?"Aufgabe anlegen":"Änderungen speichern"}</button></div>`;
+  return h;
+}
+function followPreview(d){ return followPreviewRaw(d).replace(/\.\./g,"."); }
+function followPreviewRaw(d){
+  const T=todayNum();
+  let match;
+  if(d.projectId){ const p=project(d.projectId); if(!p) return ""; const off=d.offset|0; match=dn=>recMatch(p.rec,dn-off); }
+  else { if(recValid(d.rec)) return ""; match=dn=>recMatch(d.rec,dn); }
+  const n=nextN(match,T,2);
+  if(n.length<2) return n.length?`Diese Aufgabe hat nur einen Termin (${fmtShort(n[0])}), daher gibt es keinen Folgetermin.`:"";
+  const [a,b]=n;
+  if(d.follow==="keep") return `Beispiel: Erledigst du den Termin vom ${fmtShort(a)} erst nach dem ${fmtShort(b)}, stehen beide auf deiner Liste.`;
+  if(d.follow==="shift"){ const s=Math.min(2,b-a); return `Beispiel: Verschiebst du ${fmtShort(a)} um ${s} ${s===1?"Tag":"Tage"}, liegt der nächste Termin auf ${fmtShort(b+s)} statt ${fmtShort(b)}.`; }
+  const rd=Math.max(0,d.replaceDays|0), thr=b-rd;
+  if(thr<=a+1) return `Beispiel: Schon wenn du ${fmtShort(a)} um einen Tag verschiebst, entfällt der Termin am ${fmtShort(b)}.`;
+  return `Beispiel: Verschiebst du ${fmtShort(a)} auf ${fmtShort(thr)} oder später, entfällt der Termin am ${fmtShort(b)}. Bis ${fmtShort(thr-1)} bleibt er bestehen.`;
+}
+
+function saveTask(){
+  const d=sheet.draft, err=$sheet.querySelector("#form-err");
+  d.title=d.title.trim();
+  if(!d.title){ err.textContent="Gib der Aufgabe einen Namen."; return; }
+  if(!d.projectId){ const e=recValid(d.rec); if(e){ err.textContent=e; return; } }
+  if(d.scope==="fam" && !R().edit){ err.textContent="Du darfst keine Familien-Aufgaben anlegen oder ändern."; return; }
+  const T=todayNum(), assignee = d.scope==="fam" ? (d.assignee||null) : undefined;
+  change(()=>{
+    if(d.id){
+      const t=D.tasks.find(x=>x.id===d.id);
+      const ruleChanged = JSON.stringify([t.rec,t.projectId,t.offset])!==JSON.stringify([d.rec,d.projectId,d.offset]);
+      if(t.projectId!==d.projectId) t.order=nextOrder({projectId:d.projectId, scope:t.scope});
+      Object.assign(t,{prio:d.prio, title:d.title, projectId:d.projectId, offset:d.offset|0, rec:d.projectId?null:d.rec, movable:d.movable, follow:d.follow, replaceDays:Math.max(0,d.replaceDays|0)});
+      if(t.scope==="fam" && R().assign) t.assignee=assignee;
+      if(ruleChanged || d.follow!=="shift") t.shifts=[];
+    } else {
+      const t={id:uid(), scope:d.scope, prio:d.prio, order:nextOrder({projectId:d.projectId, scope:d.scope}), title:d.title, projectId:d.projectId, offset:d.offset|0, rec:d.projectId?null:d.rec, movable:d.movable, follow:d.follow, replaceDays:Math.max(0,d.replaceDays|0), shifts:[], created:(!d.projectId && d.rec.type==="once")? Math.min(T,d.rec.start) : T};
+      if(d.scope==="fam"){ t.assignee=R().assign? assignee : null; t.createdBy=S.uid; }
+      D.tasks.push(t);
+    }
+  });
+  closeSheet(); render(); toast(d.id?"Gespeichert.":"Aufgabe angelegt.");
+}
+
+/* ---------- Nur ansehen / zuweisen (ohne Bearbeitungsrecht) ---------- */
+function viewTaskSheet(){
+  const t=D.tasks.find(x=>x.id===sheet.id); if(!t) return head("Aufgabe")+"<p>Nicht mehr vorhanden.</p>";
+  let h=head(esc(t.title));
+  h+=`<p class="note" style="margin:-4px 0 16px">${esc(dot(scheduleText(t)))} ${t.movable?"Verschiebbar.":"Fester Termin."} Zuständig: ${t.assignee?esc(nameOfNom(t.assignee)):"alle"}.</p>`;
+  if(R().assign) h+=assignHtml(t);
+  else h+=`<p class="note">Du darfst Familien-Aufgaben nur ansehen.</p>`;
+  return h;
+}
+function assignHtml(t){
+  return `<div class="field"><span>Zuweisen an</span><div class="chips">
+    <button class="chip${t.assignee==null?" on":""}" data-a="assign" data-k="${t.id}" data-v="">Alle</button>
+    ${assignable().map(m=>`<button class="chip${t.assignee===m.uid?" on":""}" data-a="assign" data-k="${t.id}" data-v="${m.uid}">${esc(m.uid===S.uid?"Mir":m.name)}</button>`).join("")}
+  </div><p class="note">Zuweisen kannst du nur an Personen, die abhaken dürfen.</p></div>`;
+}
+
+/* ---------- Projekt ---------- */
+function projectForm(){
+  const d=sheet.draft, isNew=!d.id;
+  let h=head(isNew?"Neues Projekt":"Projekt bearbeiten");
+  h+=`<p class="note" style="margin:0 0 16px">Ein Projekt ist eine größere Aufgabe. Die einzelnen Aufgaben darin richten sich nach seinem Termin.</p>`;
+  h+=`<label class="field"><span>Name</span><input class="inp" data-bind="name" data-autofocus value="${esc(d.name)}" placeholder="z. B. Steuererklärung" maxlength="80"></label>`;
+  h+=scopeSeg(d);
+  h+=prioSeg(d.prio);
+  h+=`<div class="field"><span>Farbe</span><div class="swatches">${COLORS.map(c=>`<button class="sw${d.color===c?" on":""}" style="background:${c}" data-a="color" data-v="${c}" aria-label="Farbe ${c}" aria-pressed="${d.color===c}"></button>`).join("")}</div></div>`;
+  h+=recEditor(d.rec);
+  if(!isNew){
+    const ts=D.tasks.filter(t=>t.projectId===d.id).sort(byPrio);
+    h+=`<div class="field"><span>Aufgaben (${ts.length})</span>${ts.length?`<div class="list">${ts.map(t=>`<button class="lib-row" data-a="editTask" data-v="${t.id}"><div><div class="row-title">${esc(t.title)}</div><div class="row-meta">${offsetText(t.offset)}</div></div><span class="chev">›</span></button>`).join("")}</div>`:""}</div>`;
+  }
+  h+=`<p class="note err" id="form-err"></p>`;
+  h+=`<div class="sheet-actions">${isNew?"":`<button class="btn danger" data-a="delProject">Löschen</button>`}<span class="grow"></span><button class="btn primary" data-a="saveProject">${isNew?"Projekt anlegen":"Änderungen speichern"}</button></div>`;
+  return h;
+}
+function saveProject(){
+  const d=sheet.draft, err=$sheet.querySelector("#form-err");
+  d.name=d.name.trim();
+  if(!d.name){ err.textContent="Gib dem Projekt einen Namen."; return; }
+  const e=recValid(d.rec); if(e){ err.textContent=e; return; }
+  if(d.scope==="fam" && !R().edit){ err.textContent="Du darfst keine Familien-Projekte anlegen oder ändern."; return; }
+  let id=d.id;
+  change(()=>{
+    if(id){ const p=project(id); const ch=JSON.stringify(p.rec)!==JSON.stringify(d.rec); Object.assign(p,{name:d.name,color:d.color,rec:d.rec,prio:d.prio}); if(ch) D.tasks.filter(t=>t.projectId===id).forEach(t=>t.shifts=[]); }
+    else { id=uid(); D.projects.push({id, scope:d.scope, name:d.name, color:d.color, rec:d.rec, created:todayNum(), prio:d.prio, order:nextOrder({scope:d.scope})}); }
+  });
+  render();
+  if(!d.id){ openSheet({kind:"task", draft:newTaskDraft(id)}); toast("Projekt angelegt. Jetzt die erste Aufgabe dazu."); }
+  else { closeSheet(); toast("Gespeichert."); }
+}
+
+/* ---------- Termin ---------- */
+function occSheet(){
+  const o=findOcc(sheet.key); if(!o){ return head("Termin")+`<p>Dieser Termin existiert nicht mehr.</p>`; }
+  const T=todayNum(), t=o.t, act=canAct(t);
+  let h=head(esc(t.title));
+  const who = t.scope==="fam" ? ` Familie, zuständig: ${t.assignee?esc(nameOfNom(t.assignee)):"alle"}.` : "";
+  h+=`<p class="note" style="margin:-4px 0 18px">${o.eff<T&&!o.done?"Fällig seit ":"Termin: "}${fmtLong(o.eff)}${o.moved&&o.eff!==o.orig?", ursprünglich "+dot(fmtShort(o.orig)):"."} ${esc(dot(scheduleText(t)))}${who}</p>`;
+  if(act){
+    h+=`<div class="menu"><button class="btn${o.done?"":" primary"}" data-a="toggle" data-k="${o.key}" data-close="1">${o.done?"Wieder als offen markieren":"Abhaken"}</button></div>`;
+    if(t.movable && !o.done){
+      const base=Math.max(T,o.eff);
+      const opts=[[base+1,"+1 Tag"],[base+2,"+2 Tage"],[base+7,"+1 Woche"]];
+      if(o.eff<T){ opts.unshift([T,"Heute"]); opts.pop(); }
+      h+=`<div class="field" style="margin-top:20px"><span>Verschieben auf</span><div class="quick">${opts.map(([dn,l])=>`<button class="btn" data-a="move" data-k="${o.key}" data-v="${dn}">${l}<small>${fmtShort(dn)}</small></button>`).join("")}</div>
+        <div class="inline-row" style="margin:0"><input class="inp" type="date" id="move-date" min="${iso(T)}" value="${iso(base+1)}" style="flex:1" aria-label="Anderes Datum"><button class="btn" data-a="moveDate" data-k="${o.key}">Verschieben</button></div>
+        <p class="note">${t.follow==="replace"?`Liegt das neue Datum ${t.replaceDays|0} Tage oder weniger vor dem nächsten Termin, entfällt dieser.`:t.follow==="shift"?"Alle folgenden Termine rücken um gleich viele Tage mit.":"Folgetermine bleiben unverändert."}</p></div>`;
+    } else if(!t.movable && !o.done) h+=`<p class="note" style="margin-top:16px">Diese Aufgabe ist fest terminiert und kann nicht verschoben werden.</p>`;
+  } else h+=`<div class="box notice">${esc(denyMsg(t))}</div>`;
+  if(t.scope==="fam" && R().assign && !o.done) h+=`<div style="margin-top:20px">${assignHtml(t)}</div>`;
+  h+=`<div class="menu" style="margin-top:20px">${act&&!o.done?`<button class="btn" data-a="skip" data-k="${o.key}">Diesen Termin auslassen</button>`:""}${canEditItem(t)?`<button class="btn" data-a="editTask" data-v="${t.id}">Aufgabe bearbeiten</button>`:""}</div>`;
+  return h;
+}
+
+/* ---------- Familie: Mitglied, Anfrage, Passwort, Einsicht ---------- */
+function rightsToggles(r, prefix){
+  return RIGHTS.map(([k,l,desc])=>`<div class="switch-row rt"><div><b>${l}</b><small>${desc}</small></div>
+    <label class="switch"><input type="checkbox" data-a="${prefix}" data-v="${k}" ${r[k]?"checked":""} ${k!=="admin"&&r.admin?"disabled":""} aria-label="${l}"><i></i></label></div>`).join("");
+}
+function memberSheet(){
+  const uid=sheet.uid, m=S.members[uid]; if(!m) return head("Mitglied")+"<p>Nicht mehr in der Familie.</p>";
+  const r=R(), self=uid===S.uid;
+  let h=head(esc(m.name)+(self?" (du)":""));
+  if(self) h+=`<label class="field"><span>Dein Name</span><div class="inline-row" style="margin:0"><input class="inp" id="m-name" value="${esc(m.name)}" maxlength="40" style="flex:1"><button class="btn" data-a="renameSelf">Speichern</button></div></label>`;
+  if(r.admin){
+    const rr=sheet.rights||(sheet.rights=clone(m.rights||{}));
+    h+=`<div class="box"><span class="lbl">Rechte in der Familie</span><p class="note" style="margin:0 0 6px">Ansehen darf jedes Mitglied. Persönliche Aufgaben verwaltet jede Person immer selbst.</p>${rightsToggles(rr,"mright")}
+      <div class="sheet-actions" style="margin-top:12px"><span class="grow"></span><button class="btn primary" data-a="saveRights">Rechte speichern</button></div></div>`;
+    if(!self) h+=`<div class="menu"><button class="btn" data-a="privOpen" data-v="${uid}">${ICON.lock.replace("<svg",'<svg class="h-ic"')}Persönliche Aufgaben ansehen</button><button class="btn danger" data-a="removeMember">Aus der Familie entfernen</button></div>`;
+  } else if(!self){
+    h+=`<p class="note">${esc(m.name)}: ${rightsSummary(m)}. Rechte vergeben können nur Admins.</p>`;
+  } else {
+    h+=`<p class="note">Deine Rechte: ${rightsSummary(m)}. Ändern kann sie ein Admin.</p>`;
+  }
+  h+=`<p class="note err" id="form-err"></p>`;
+  return h;
+}
+function requestSheet(){
+  const q=S.requests.find(x=>x.uid===sheet.uid); if(!q) return head("Anfrage")+"<p>Diese Anfrage gibt es nicht mehr.</p>";
+  const rr=sheet.rights||(sheet.rights={check:true,edit:false,assign:false,admin:false});
+  let h=head("Anfrage von "+esc(q.name));
+  h+=`<p class="note" style="margin:-4px 0 14px">Nimm die Person nur auf, wenn du sicher bist, wer es ist. Lege fest, was sie bei Familien-Aufgaben darf.</p>`;
+  h+=`<label class="field"><span>Name in der Familie</span><input class="inp" id="q-name" value="${esc(q.name)}" maxlength="40"></label>`;
+  h+=`<div class="box">${rightsToggles(rr,"qright")}</div>`;
+  h+=`<div class="sheet-actions"><button class="btn danger" data-a="rejectReq">Ablehnen</button><span class="grow"></span><button class="btn primary" data-a="approveReq">Aufnehmen</button></div>`;
+  return h;
+}
+function pinSheet(){
+  return head("Admin-Passwort ändern")+`<p class="note" style="margin:-4px 0 14px">Gilt für alle Admins der Familie. Damit lassen sich persönliche Aufgaben einsehen.</p>
+   <label class="field"><span>Neues Passwort</span><input class="inp" id="p1" type="password" autocomplete="new-password" data-autofocus></label>
+   <label class="field"><span>Wiederholen</span><input class="inp" id="p2" type="password" autocomplete="new-password"></label>
+   <p class="note err" id="form-err"></p><div class="sheet-actions"><span class="grow"></span><button class="btn primary" data-a="savePin">Passwort speichern</button></div>`;
+}
+function withData(data, fn){
+  const saved=D; D={tasks:(data.tasks||[]).map(t=>({...t,scope:"me"})), projects:(data.projects||[]).map(p=>({...p,scope:"me"})), log:data.log||{}}; normalize();
+  try{ return fn(); } finally{ D=saved; }
+}
+function privSheet(){
+  const m=S.members[sheet.uid]||{name:"?"};
+  let h=head("Persönlich: "+esc(m.name));
+  if(!sheet.data){
+    return h+`<p class="note" style="margin:-4px 0 14px">Persönliche Aufgaben sind privat. Mit dem Admin-Passwort kannst du sie 15 Minuten lang ansehen, aber nicht ändern.</p>
+      <label class="field"><span>Admin-Passwort</span><input class="inp" id="pin" type="password" autocomplete="current-password" data-autofocus></label>
+      <p class="note err" id="form-err"></p><div class="sheet-actions"><span class="grow"></span><button class="btn primary" data-a="privUnlock">Ansehen</button></div>`;
+  }
+  const T=todayNum();
+  return h+withData(sheet.data, ()=>{
+    const {due,overdue}=dayModel(T);
+    const rows=[...overdue,...due].map(o=>`<div class="row${o.done?" done":""}"><span class="check${o.done?" on":""} locked">${o.done?ICON.check:""}</span><div class="row-main"><div class="row-title">${esc(o.t.title)}</div><div class="row-meta">${o.eff<T&&!o.done?"fällig seit "+fmtRel(o.eff):o.done?"erledigt":"offen"}</div></div><span></span></div>`).join("");
+    const all=[...D.tasks].sort(byPrio).map(t=>`<div class="lib-row"><div><div class="row-title">${esc(t.title)}</div><div class="row-meta">${esc(scheduleText(t))}</div></div><span></span></div>`).join("");
+    return `<div class="sec-head"><h2>Heute</h2><span class="count">${due.filter(o=>o.done).length} von ${due.length+overdue.length} erledigt</span></div>${rows?`<div class="list">${rows}</div>`:`<p class="note">Heute nichts geplant.</p>`}
+      <div class="sec-head" style="margin-top:22px"><h2>Alle Aufgaben</h2><span class="count">${D.tasks.length}</span></div>${all?`<div class="list">${all}</div>`:`<p class="note">Keine persönlichen Aufgaben.</p>`}`;
+  });
+}
+
+/* ---------- Einstellungen ---------- */
+function settingsSheet(){
+  let h=head("Einstellungen & Sicherung");
+  if(S.mode==="demo"){
+    h+=`<div class="box notice"><b>Demo-Modus</b><p class="note" style="margin-top:4px">Alles bleibt auf diesem Gerät. Hier kannst du in die Rolle anderer Familienmitglieder schlüpfen und so die Rechte ausprobieren.</p>
+      <span class="lbl" style="margin-top:12px">Ansehen als</span><div class="chips">${B.people().map(p=>`<button class="chip${p.uid===S.uid?" on":""}" data-a="demoSwitch" data-v="${p.uid}">${esc(p.name)}</button>`).join("")}</div>
+      <div class="toolbar"><button class="btn" data-a="demoNewDevice">Als neues Gerät öffnen</button><button class="btn danger" data-a="demoReset">Demo zurücksetzen</button></div></div>`;
+  } else {
+    h+= S.isAnon
+      ? `<div class="box"><b>Anmeldung sichern</b><p class="note" style="margin-top:4px">Dieses Gerät ist gerade dein Schlüssel. Wenn du die App löschst oder das Handy wechselst, wärst du sonst draußen. Mit E-Mail und Passwort kannst du dich später auf einem neuen Gerät wieder anmelden.</p>
+          <label class="field" style="margin-top:12px"><span>E-Mail</span><input class="inp" id="s-mail" type="email" autocomplete="username"></label>
+          <label class="field"><span>Passwort (mindestens 6 Zeichen)</span><input class="inp" id="s-pw" type="password" autocomplete="new-password"></label>
+          <button class="btn" data-a="secure">Anmeldung sichern</button></div>`
+      : `<div class="box"><b>Anmeldung gesichert</b><p class="note" style="margin-top:4px">Auf einem neuen Gerät meldest du dich mit ${esc(S.email||"deiner E-Mail")} an.</p></div>`;
+  }
+  h+=`<div class="field"><span>Persönliche Aufgaben exportieren</span><button class="btn" data-a="export">Sicherung in die Zwischenablage kopieren</button></div>`;
+  h+=`<label class="field"><span>Persönliche Aufgaben importieren (ersetzt sie)</span><textarea class="inp" id="imp" placeholder="Sicherung hier einfügen, auch aus der bisherigen Tagwerk-Version"></textarea></label><button class="btn" data-a="import">Sicherung einspielen</button>`;
+  h+=`<div class="field" style="margin-top:22px"><span>Darstellung</span><div class="seg">${[["auto","Wie System"],["light","Hell"],["dark","Dunkel"]].map(([v,l])=>`<button class="${getTheme()===v?"on":""}" data-a="theme" data-v="${v}">${l}</button>`).join("")}</div></div>`;
+  if(R().admin) h+=`<label class="field" style="margin-top:22px"><span>Name der Familie</span><div class="inline-row" style="margin:0"><input class="inp" id="s-fam" value="${esc((S.family&&S.family.name)||"")}" maxlength="60" style="flex:1"><button class="btn" data-a="renameFamily">Speichern</button></div></label>`;
+  h+=`<p class="note" id="set-msg"></p>`;
+  return h;
+}
+function getTheme(){ try{ return localStorage.getItem("tagwerk.theme")||"auto"; }catch(e){ return "auto"; } }
+function applyTheme(){ const v=getTheme(); if(v==="auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme",v); }
+
+/* =====================================================================
+   Ereignisse
+   ===================================================================== */
+function setPath(o,path,v){ const ks=path.split("."); let x=o; for(let i=0;i<ks.length-1;i++) x=x[ks[i]]; x[ks[ks.length-1]]=v; }
+function readVal(el){
+  const t=el.dataset.type;
+  if(t==="bool") return el.checked;
+  if(t==="num") return Math.max(0, parseInt(el.value,10)||0);
+  if(t==="date") return fromIso(el.value);
+  if(el.type==="radio") return el.value;
+  return el.value===""&&el.tagName==="SELECT" ? null : el.value;
+}
+function updatePreview(){ const p=$sheet.querySelector("#preview"); if(p && sheet && sheet.kind==="task") p.innerHTML=followPreview(sheet.draft); }
+const val=id=>{ const e=document.getElementById(id); return e? e.value.trim() : ""; };
+const setErr=(id,msg)=>{ const e=document.getElementById(id); if(e) e.textContent=msg; };
+function busy(b,on){ if(b){ b.disabled=on; } }
+
+$sheet.addEventListener("input",e=>{
+  const el=e.target; if(!sheet||!sheet.draft) return;
+  if(el.dataset.bind && el.dataset.type!=="bool" && el.type!=="radio" && el.tagName!=="SELECT"){
+    let v=readVal(el);
+    if(el.dataset.bind==="rec.start" && v==null) return;
+    if(el.dataset.bind==="rec.every") v=Math.max(1,v);
+    setPath(sheet.draft, el.dataset.bind, v); updatePreview();
+  }
+  if(el.dataset.a==="offN"){ const dir=Math.sign(sheet.draft.offset|0)||1; sheet.draft.offset=(Math.min(365,parseInt(el.value,10)||0))*(dir<0?-1:1); updatePreview(); }
+});
+$sheet.addEventListener("change",e=>{
+  const el=e.target; if(!sheet) return;
+  if((el.dataset.a==="mright"||el.dataset.a==="qright") && sheet.rights){ sheet.rights[el.dataset.v]=el.checked; if(el.dataset.v==="admin"&&el.checked) Object.assign(sheet.rights,{check:true,edit:true,assign:true}); renderSheet(); return; }
+  if(!sheet.draft) return;
+  if(el.dataset.bind){
+    let v=readVal(el);
+    if(el.dataset.bind==="rec.start" && v==null) return;
+    if(el.dataset.bind==="rec.every") v=Math.max(1,v);
+    setPath(sheet.draft, el.dataset.bind, v);
+    if(el.dataset.rerender!==undefined || el.dataset.live!==undefined || el.type==="date") renderSheet(); else updatePreview();
+  }
+  if(el.dataset.a==="offDir"){ sheet.draft.offset=Math.abs(sheet.draft.offset|0)*(+el.value); updatePreview(); }
+  if(el.dataset.a==="yd"){ sheet.draft.rec.yearDates[+el.dataset.i][el.dataset.f]=+el.value; const x=sheet.draft.rec.yearDates[+el.dataset.i]; x.d=Math.min(x.d, x.m===2?29:lastDayOf(2001,x.m)); renderSheet(); }
+});
+$sheet.addEventListener("keydown",e=>{ if(e.key==="Enter" && e.target.tagName==="INPUT" && e.target.type!=="checkbox" && e.target.type!=="radio"){ e.preventDefault(); e.target.blur(); } });
+
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-a]"); if(!b) return;
+  if(b.tagName==="SELECT"||(b.tagName==="INPUT"&&b.type!=="button")) return;
+  const a=b.dataset.a, v=b.dataset.v, d=sheet&&sheet.draft;
+  try{
+  switch(a){
+    case "reload": location.reload(); break;
+    case "menu": openSheet({kind:"menu"}); break;
+    case "go": ui.view=v; ui.reorder=false; if(v!=="lib") ui.day=todayNum(); closeSheet(); render(); window.scrollTo(0,0); break;
+    case "day": ui.day=+v; render(); break;
+    case "toggle":{ const o=findOcc(b.dataset.k); if(o){ toggleDone(o); if(b.dataset.close && canAct(o.t)) closeSheet(); } break; }
+    case "occ": openSheet({kind:"occ", key:b.dataset.k}); break;
+    case "move": doMove(b.dataset.k, +v); break;
+    case "moveDate": doMove(b.dataset.k, fromIso($sheet.querySelector("#move-date").value)); break;
+    case "skip": doSkip(b.dataset.k); break;
+    case "assign": doAssign(b.dataset.k, v); break;
+    case "newTask":{ const sc=b.dataset.scope || (ui.view==="family"?"fam":"me"); openSheet({kind:"task", draft:newTaskDraft(v||null, sc)}); break; }
+    case "viewTask": openSheet({kind:"viewTask", id:v}); break;
+    case "editTask":{ const t=D.tasks.find(x=>x.id===v); if(!t) break; if(!canEditItem(t)){ openSheet({kind:"viewTask", id:v}); break; }
+      openSheet({kind:"task", draft:Object.assign(newTaskDraft(), clone(t), {rec: clone(t.rec||newRec("weekly",todayNum())), assignee:t.assignee??null})}); break; }
+    case "newProject":{ let sc=b.dataset.scope || (ui.view==="family"?"fam":"me"); if(sc==="fam"&&!R().edit) sc="me"; openSheet({kind:"project", draft:{id:null, scope:sc, name:"", prio:2, color:COLORS[D.projects.length%COLORS.length], rec:newRec("once",todayNum()+7)}}); break; }
+    case "editProject":{ const p=project(v); if(p && canEditItem(p)) openSheet({kind:"project", draft:clone(p)}); break; }
+    case "saveTask": saveTask(); break;
+    case "saveProject": saveProject(); break;
+    case "scope": d.scope=v; d.projectId=null; d.assignee=null; renderSheet(); break;
+    case "delTask":
+      if(confirm("Aufgabe „"+d.title+"“ löschen?")){ change(()=>{ D.tasks=D.tasks.filter(t=>t.id!==d.id); for(const k of Object.keys(D.log)) if(k.startsWith(d.id+"|")) delete D.log[k]; }); closeSheet(); render(); toast("Aufgabe gelöscht.",true); }
+      break;
+    case "delProject":{
+      const ids=D.tasks.filter(t=>t.projectId===d.id).map(t=>t.id), n=ids.length;
+      if(confirm("Projekt „"+d.name+"“"+(n?" mit "+n+" Aufgabe"+(n>1?"n":""):"")+" löschen?")){
+        change(()=>{ D.projects=D.projects.filter(p=>p.id!==d.id); D.tasks=D.tasks.filter(t=>t.projectId!==d.id); for(const k of Object.keys(D.log)) if(ids.includes(k.split("|")[0])) delete D.log[k]; });
+        closeSheet(); render(); toast("Projekt gelöscht.",true); }
+      break; }
+    case "close": closeSheet(); break;
+    case "color": d.color=v; renderSheet(); break;
+    case "prio": d.prio=+v; renderSheet(); break;
+    case "rectype":{
+      const old=d.rec, r=newRec(v, old.start); r.every=old.every||1; r.end=v==="once"?null:old.end;
+      if(old.weekdays.length) r.weekdays=old.weekdays; if(old.monthDays.length) r.monthDays=old.monthDays; if(old.yearDates.length) r.yearDates=old.yearDates;
+      d.rec=r; renderSheet(); break; }
+    case "wd":{ const i=+v, s=d.rec.weekdays; d.rec.weekdays = s.includes(i)? s.filter(x=>x!==i) : [...s,i]; renderSheet(); break; }
+    case "md":{ const i=+v, s=d.rec.monthDays; d.rec.monthDays = s.includes(i)? s.filter(x=>x!==i) : [...s,i]; renderSheet(); break; }
+    case "addyd": d.rec.yearDates.push({m:1,d:1}); renderSheet(); break;
+    case "rmyd": d.rec.yearDates.splice(+v,1); renderSheet(); break;
+    case "reorderToggle": ui.reorder=!ui.reorder; render(); break;
+    case "up": case "down":{ const x=(b.dataset.kind==="p"?D.projects:D.tasks).find(y=>y.id===v); if(x) reorder(x, a==="up"?-1:1); break; }
+    case "settings": openSheet({kind:"settings"}); break;
+    case "theme": try{ localStorage.setItem("tagwerk.theme",v); }catch(err){} applyTheme(); renderSheet(); break;
+
+    /* --- Einstieg --- */
+    case "welcome": ui.welcome=v||null; render(); setTimeout(()=>$app.querySelector("input")?.focus(),30); break;
+    case "createFamily":{
+      const fam=val("w-fam"), name=val("w-name"), pin=document.getElementById("w-pin").value;
+      if(!fam||!name){ setErr("w-err","Bitte Familienname und deinen Namen eingeben."); break; }
+      if(pin.length<4){ setErr("w-err","Das Admin-Passwort braucht mindestens 4 Zeichen."); break; }
+      const imp=document.getElementById("w-import"), data=imp&&imp.checked? oldLocalData() : null;
+      busy(b,true); await B.createFamily(fam,name,pin,data); ui.welcome=null; ui.view="today"; render(); toast("Familie gegründet. Lade die anderen unter „Familie“ ein."); break; }
+    case "requestJoin":{
+      const code=val("w-code"), name=val("w-name");
+      if(!code||!name){ setErr("w-err","Bitte Code und deinen Namen eingeben."); break; }
+      busy(b,true);
+      try{ await B.requestJoin(code,name); ui.welcome=null; render(); }
+      catch(err){ busy(b,false); setErr("w-err", err.message==="code"?"Diesen Code gibt es nicht. Prüfe die Schreibweise.":"Die Anfrage konnte nicht gesendet werden. Prüfe die Internetverbindung."); }
+      break; }
+    case "cancelRequest": await B.cancelRequest(); render(); break;
+    case "signIn":{
+      busy(b,true);
+      try{ await B.signIn(val("w-mail"), document.getElementById("w-pw").value); }
+      catch(err){ busy(b,false); setErr("w-err","Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort."); }
+      break; }
+
+    /* --- Familie --- */
+    case "member": openSheet({kind:"member", uid:v}); break;
+    case "request": openSheet({kind:"request", uid:v}); break;
+    case "renameSelf":{ const n=val("m-name"); if(n){ await B.updateMember(S.uid,{name:n}); closeSheet(); render(); toast("Name geändert."); } break; }
+    case "saveRights":{
+      const uid=sheet.uid, rr=sheet.rights;
+      const admins=Object.entries(S.members).filter(([u,m])=>u!==uid&&rightsOf(m).admin).length;
+      if(!rr.admin && rightsOf(S.members[uid]).admin && admins===0){ setErr("form-err","Es muss mindestens einen Admin geben."); break; }
+      await B.updateMember(uid,{rights:{admin:!!rr.admin, check:!!(rr.check||rr.admin), edit:!!(rr.edit||rr.admin), assign:!!(rr.assign||rr.admin)}});
+      closeSheet(); render(); toast("Rechte gespeichert."); break; }
+    case "removeMember":{ const m=S.members[sheet.uid]; if(m && confirm(m.name+" aus der Familie entfernen? Zugewiesene Aufgaben werden wieder für alle freigegeben.")){ await B.removeMember(sheet.uid); closeSheet(); render(); toast(m.name+" wurde entfernt."); } break; }
+    case "approveReq":{ const n=val("q-name"), rr=sheet.rights; if(!n){ break; } busy(b,true);
+      await B.approve(sheet.uid, n, {admin:!!rr.admin, check:!!(rr.check||rr.admin), edit:!!(rr.edit||rr.admin), assign:!!(rr.assign||rr.admin)}); closeSheet(); render(); toast(n+" ist jetzt in der Familie."); break; }
+    case "rejectReq": if(confirm("Anfrage ablehnen?")){ await B.reject(sheet.uid); closeSheet(); render(); toast("Anfrage abgelehnt."); } break;
+    case "changePin": openSheet({kind:"pin"}); break;
+    case "savePin":{ const p1=document.getElementById("p1").value, p2=document.getElementById("p2").value;
+      if(p1.length<4){ setErr("form-err","Mindestens 4 Zeichen."); break; } if(p1!==p2){ setErr("form-err","Die beiden Eingaben stimmen nicht überein."); break; }
+      await B.setPin(p1); closeSheet(); toast("Admin-Passwort geändert."); break; }
+    case "privOpen": openSheet({kind:"priv", uid:v}); break;
+    case "privUnlock":{ busy(b,true);
+      try{ sheet.data=await B.readPrivate(sheet.uid, document.getElementById("pin").value); renderSheet(); }
+      catch(err){ busy(b,false); setErr("form-err", err.message==="pin"?"Das Admin-Passwort stimmt nicht.":"Konnte nicht geladen werden."); }
+      break; }
+    case "copyInvite":{
+      const code=(S.family&&S.family.code)||"", link=location.protocol.startsWith("http")&&!location.hostname.endsWith("claude.ai")?location.origin+location.pathname:"";
+      const txt=`Mach mit bei „${(S.family&&S.family.name)||"unserer Familie"}“ in Tagwerk!${link?"\nApp: "+link:""}\nFamilien-Code: ${code}\nÖffne die App, tippe auf „Einer Familie beitreten“ und gib den Code ein.`;
+      try{ await navigator.clipboard.writeText(txt); toast("Einladung kopiert."); }catch(err){ prompt("Einladung kopieren:",txt); }
+      break; }
+    case "renameFamily":{ const n=val("s-fam"); if(n){ await B.renameFamily(n); render(); toast("Gespeichert."); } break; }
+    case "secure":{
+      const mail=val("s-mail"), pw=document.getElementById("s-pw").value, msg=document.getElementById("set-msg");
+      if(!mail||pw.length<6){ msg.textContent="Bitte E-Mail und ein Passwort mit mindestens 6 Zeichen eingeben."; break; }
+      try{ await B.secure(mail,pw); renderSheet(); toast("Anmeldung gesichert."); }
+      catch(err){ msg.textContent = err.code==="auth/email-already-in-use"?"Diese E-Mail wird schon verwendet.":err.code==="auth/operation-not-allowed"?"E-Mail-Anmeldung ist in Firebase noch nicht eingeschaltet (siehe Anleitung).":"Hat nicht geklappt: "+(err.code||err.message); }
+      break; }
+
+    /* --- Demo --- */
+    case "demoSwitch": B.switchTo(v); closeSheet(); ui.view="today"; render(); toast("Du siehst die App jetzt als "+(S.members[S.uid]?S.members[S.uid].name:"wartende Person")+"."); break;
+    case "demoRequest": B.simulateRequest(); render(); toast("Neue Beitrittsanfrage eingegangen."); break;
+    case "demoNewDevice": B.newDevice(); closeSheet(); ui.welcome=null; render(); break;
+    case "demoReset": if(confirm("Demo komplett zurücksetzen?")) B.reset(); break;
+
+    /* --- Sicherung --- */
+    case "export":{
+      const txt=JSON.stringify(subset("me")), msg=$sheet.querySelector("#set-msg");
+      (navigator.clipboard? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>{ msg.textContent="Sicherung kopiert. Füge sie z. B. in eine Notiz ein."; })
+        .catch(()=>{ const ta=$sheet.querySelector("#imp"); ta.value=txt; ta.select(); msg.textContent="Kopieren war nicht möglich. Die Sicherung steht jetzt im Feld darüber, markiert zum Kopieren."; });
+      break; }
+    case "import":{
+      const msg=$sheet.querySelector("#set-msg");
+      let x; try{ x=JSON.parse($sheet.querySelector("#imp").value); }catch(err){}
+      if(!x || !Array.isArray(x.tasks) || !Array.isArray(x.projects)){ msg.textContent="Das ist keine gültige Tagwerk-Sicherung. Kopiere den kompletten Text des Exports."; break; }
+      if(!confirm("Alle persönlichen Aufgaben durch die Sicherung ersetzen?")) break;
+      change(()=>{ const fam=subset("fam"); rebuild({tasks:x.tasks.map(t=>({...t,scope:"me"})), projects:x.projects.map(p=>({...p,scope:"me"})), log:x.log||{}}, fam); });
+      closeSheet(); render(); toast("Sicherung eingespielt.",true); break; }
+  }
+  }catch(err){ console.error(err); busy(b,false); toast("Das hat nicht geklappt"+(err&&err.code?" ("+err.code+")":"")+"."); }
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && sheetOpen) closeSheet(); });
+$scrim.addEventListener("click",e=>{ if(e.target===$scrim) closeSheet(); });
+
+/* ---------- Toast ---------- */
+let toastTimer=null;
+const $toast=document.getElementById("toast"), $undo=document.getElementById("toast-undo");
+function toast(msg,canUndo){ document.getElementById("toast-text").textContent=msg; $undo.hidden=!canUndo||!undoBefore; $toast.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(hideToast,5200); }
+function hideToast(){ $toast.classList.remove("show"); }
+$undo.addEventListener("click",undo);
+
+/* ---------- Tageswechsel ---------- */
+let lastDay=todayNum();
+function checkDay(){ const T=todayNum(); if(T!==lastDay){ if(ui.day===lastDay) ui.day=T; lastDay=T; render(); } }
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkDay(); });
+setInterval(checkDay,60000);
+
+/* ---------- Start ---------- */
+async function boot(){
+  applyTheme(); render();
+  const cfg=window.TAGWERK_FIREBASE;
+  try{
+    B = (cfg && cfg.apiKey && !/DEIN|YOUR/.test(cfg.apiKey)) ? await firebaseBackend(cfg) : demoBackend();
+    S.mode=B.kind;
+    await B.start();
+  }catch(err){
+    console.error(err); S.phase="error";
+    S.error = (err&&err.code==="auth/operation-not-allowed") ? "Die anonyme Anmeldung ist in Firebase noch nicht eingeschaltet. Siehe Schritt 3 der Anleitung." :
+              (err&&err.code==="auth/admin-restricted-operation") ? "Die anonyme Anmeldung ist in Firebase noch nicht eingeschaltet. Siehe Schritt 3 der Anleitung." :
+              "Prüfe die Internetverbindung und die Firebase-Einstellungen in config.js. ("+((err&&(err.code||err.message))||err)+")";
+  }
+  render();
+}
+if(!window.claude && "serviceWorker" in navigator && location.protocol==="https:"){
+  const l=document.createElement("link"); l.rel="manifest"; l.href="manifest.webmanifest"; document.head.appendChild(l);
+  const ai=document.createElement("link"); ai.rel="apple-touch-icon"; ai.href="icon-192.png"; document.head.appendChild(ai);
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+boot();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+rules_version = '2';
+// Sicherheitsregeln für Tagwerk (Familien-Version)
+// In der Firebase-Konsole unter Firestore Database > Regeln komplett einfügen und "Veröffentlichen".
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Hilfsfunktionen ----------
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function famPath(fid) { return /databases/$(database)/documents/families/$(fid); }
+    function memberPath(fid, u) { return /databases/$(database)/documents/families/$(fid)/members/$(u); }
+    function taskPath(fid, tid) { return /databases/$(database)/documents/families/$(fid)/tasks/$(tid); }
+    function isMember(fid) { return signedIn() && exists(memberPath(fid, me())); }
+    function rightsOf(fid, u) { return get(memberPath(fid, u)).data.rights; }
+    function isAdmin(fid) { return isMember(fid) && rightsOf(fid, me()).get('admin', false) == true; }
+    function can(fid, r) {
+      return isMember(fid) && (rightsOf(fid, me()).get('admin', false) == true || rightsOf(fid, me()).get(r, false) == true);
+    }
+    // Zuweisen geht nur an Personen, die abhaken dürfen
+    function validAssignee(fid, a) {
+      return a == null || (a is string && exists(memberPath(fid, a))
+        && (rightsOf(fid, a).get('admin', false) == true || rightsOf(fid, a).get('check', false) == true));
+    }
+    function changedOnly(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    // Gründung: die Familie entsteht im selben Schreibvorgang
+    function founding(fid) { return signedIn() && !exists(famPath(fid)) && getAfter(famPath(fid)).data.createdBy == me(); }
+    // Abhaken: Recht "check" und Aufgabe ist niemandem oder mir zugewiesen (Admins dürfen immer)
+    function mayCheckTask(fid, tid) {
+      return can(fid, 'check') && exists(taskPath(fid, tid))
+        && (get(taskPath(fid, tid)).data.get('assignee', null) == null
+            || get(taskPath(fid, tid)).data.get('assignee', null) == me()
+            || isAdmin(fid));
+    }
+    // Admin hat in den letzten Minuten das Admin-Passwort richtig eingegeben
+    function unlocked(fid) {
+      return exists(/databases/$(database)/documents/families/$(fid)/unlocks/$(me()))
+        && get(/databases/$(database)/documents/families/$(fid)/unlocks/$(me())).data.until > request.time;
+    }
+
+    // ---------- Wer gehört zu welcher Familie ----------
+    match /users/{u} {
+      allow read, write: if signedIn() && me() == u;
+    }
+
+    // ---------- Familien-Codes (zum Beitreten) ----------
+    match /joinCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.createdBy == me()
+                    && getAfter(famPath(request.resource.data.fid)).data.createdBy == me();
+      allow update, delete: if signedIn() && isAdmin(resource.data.fid);
+    }
+
+    match /families/{fid} {
+      allow read: if isMember(fid);
+      allow create: if signedIn() && request.resource.data.createdBy == me();
+      allow update: if isAdmin(fid)
+                    && request.resource.data.createdBy == resource.data.createdBy
+                    && request.resource.data.code == resource.data.code;
+      allow delete: if false;
+
+      // ---------- Mitglieder & Rechte ----------
+      match /members/{u} {
+        allow read: if isMember(fid) || (signedIn() && me() == u);
+        allow create: if (signedIn() && me() == u && founding(fid))
+                      || (isAdmin(fid) && exists(/databases/$(database)/documents/families/$(fid)/requests/$(u)));
+        allow update: if isAdmin(fid) || (signedIn() && me() == u && changedOnly(['name', 'color']));
+        allow delete: if isAdmin(fid) || (signedIn() && me() == u);
+      }
+
+      // ---------- Beitrittsanfragen ----------
+      match /requests/{u} {
+        allow read: if isAdmin(fid) || (signedIn() && me() == u);
+        allow create: if signedIn() && me() == u
+                      && request.resource.data.keys().hasOnly(['name', 'at', 'code'])
+                      && request.resource.data.name is string && request.resource.data.name.size() <= 40
+                      && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.code)).data.fid == fid
+                      && !exists(memberPath(fid, u));
+        allow delete: if isAdmin(fid) || (signedIn() && me() == u);
+      }
+
+      // ---------- Admin-Passwort (niemand kann es lesen) ----------
+      match /secret/{d} {
+        allow read: if false;
+        allow create: if founding(fid) || isAdmin(fid);
+        allow update: if isAdmin(fid);
+      }
+      match /unlocks/{u} {
+        allow read, delete: if signedIn() && me() == u;
+        allow create, update: if signedIn() && me() == u && isAdmin(fid)
+          && request.resource.data.hash == get(/databases/$(database)/documents/families/$(fid)/secret/admin).data.pinHash
+          && request.resource.data.until is timestamp
+          && request.resource.data.until < request.time + duration.value(30, 'm');
+      }
+
+      // ---------- Persönliche Aufgaben ----------
+      match /private/{u} {
+        allow read: if signedIn() && (me() == u || (isAdmin(fid) && unlocked(fid)));
+        allow write: if signedIn() && me() == u && (isMember(fid) || founding(fid));
+      }
+
+      // ---------- Familien-Projekte & -Aufgaben ----------
+      match /projects/{pid} {
+        allow read: if isMember(fid);
+        allow create, update, delete: if can(fid, 'edit');
+      }
+      match /tasks/{tid} {
+        allow read: if isMember(fid);
+        allow create: if can(fid, 'edit')
+          && (request.resource.data.get('assignee', null) == null
+              || (can(fid, 'assign') && validAssignee(fid, request.resource.data.assignee)));
+        // Erlaubt sind drei Arten von Änderungen:
+        // 1. Planen: alles ändern, die Zuständigkeit aber nur mit Zuweisen-Recht
+        // 2. Zuweisen: nur die Zuständigkeit
+        // 3. Abhaken mit "Serie rückt mit": nur die Verschiebungen
+        allow update: if
+             (can(fid, 'edit')
+               && (request.resource.data.get('assignee', null) == resource.data.get('assignee', null)
+                   || (can(fid, 'assign') && validAssignee(fid, request.resource.data.get('assignee', null)))))
+          || (can(fid, 'assign') && changedOnly(['assignee'])
+               && validAssignee(fid, request.resource.data.get('assignee', null)))
+          || (can(fid, 'check') && changedOnly(['shifts'])
+               && (resource.data.get('assignee', null) == null || resource.data.get('assignee', null) == me() || isAdmin(fid)));
+        allow delete: if can(fid, 'edit');
+      }
+
+      // ---------- Erledigt / verschoben / ausgelassen ----------
+      match /log/{lid} {
+        allow read: if isMember(fid);
+        allow create, update: if lid == request.resource.data.taskId + '_' + string(request.resource.data.orig)
+                              && mayCheckTask(fid, request.resource.data.taskId);
+        allow delete: if mayCheckTask(fid, resource.data.taskId) || can(fid, 'edit');
+      }
+    }
+  }
+}
