@@ -242,6 +242,24 @@ span.check{display:grid}
 .rt{padding:10px 0;border-top:1px solid var(--line)}
 .box>.rt:first-child,.box>.note+.rt{border-top:0}
 .is-off{opacity:.55}
+textarea.inp.plain{font-family:var(--body);font-size:16px;min-height:72px}
+.cl-row{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.citem{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:10px 12px}
+.list>.citem:first-child{border-top:0}
+.citem .check{width:24px;height:24px}
+.citem.on .txt{text-decoration:line-through;color:var(--muted)}
+.citem:disabled{cursor:not-allowed}
+.rot-n{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--on-accent);color:var(--accent);font-size:12px;margin-right:6px}
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.filters select.inp{padding-top:7px;padding-bottom:7px;font-size:15px;border-radius:20px}
+details.stat{border-top:1px solid var(--line)}
+.list>details.stat:first-child{border-top:0}
+details.stat summary{display:flex;gap:12px;align-items:center;padding:12px 14px;cursor:pointer;list-style:none}
+details.stat summary::-webkit-details-marker{display:none}
+.stat-n{font-family:var(--display);font-weight:600;font-size:18px;margin-left:auto;padding-left:10px}
+.bar{height:7px;border-radius:4px;background:var(--chip);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.stat-tasks{padding:0 14px 12px 58px}
 </style>
 </head>
 <body>
@@ -331,22 +349,74 @@ function neighbours(item){
 function meM(){ return S.members[S.uid]||null; }
 function R(){ const r=(meM()&&meM().rights)||{}, a=!!r.admin; return {admin:a, check:a||!!r.check, edit:a||!!r.edit, assign:a||!!r.assign}; }
 function rightsOf(m){ const r=(m&&m.rights)||{}, a=!!r.admin; return {admin:a, check:a||!!r.check, edit:a||!!r.edit, assign:a||!!r.assign}; }
-/* Mitglieder können für Familien-Aufgaben inaktiv sein (Feld active:false).
-   Aufgaben, die einer inaktiven Person zugewiesen sind, stehen solange allen offen. */
-function memberActive(uid){ const m=S.members[uid]; return !m || m.active!==false; }
-function effAssignee(t){ return (t.assignee && !memberActive(t.assignee)) ? null : (t.assignee??null); }
+/* Mitglieder können für Familien-Aufgaben inaktiv sein (active:false) oder für einen
+   Zeitraum im Urlaub (away:{from,to}). Ihre Termine stehen solange allen offen,
+   bei einer Rotation übernimmt die nächste Person. */
+function awayOn(m,day){ const a=m&&m.away; return !!a && a.from!=null && day>=a.from && (a.to==null || day<=a.to); }
+function memberActiveOn(uid,day){ const m=S.members[uid]; return !m || (m.active!==false && !awayOn(m,day)); }
+function memberActive(uid){ return memberActiveOn(uid,todayNum()); }
+function memberTag(m){
+  const T=todayNum(), a=m.away;
+  if(m.active===false) return ' <span class="tag">inaktiv</span>';
+  if(a && a.to>=T) return ` <span class="tag">${a.from<=T?"Urlaub bis "+fmtShort(a.to):"Urlaub ab "+fmtShort(a.from)}</span>`;
+  return "";
+}
+
+/* ---------- „X Tage nach Erledigung“ ----------
+   Es gibt immer genau einen offenen Termin: next (bzw. beim ersten Mal rec.start).
+   Beim Abhaken wird next = Erledigungstag + X. */
+const isAfter = t => !!t && !t.projectId && !!t.rec && t.rec.type==="after";
+function afterN(t){ return Math.max(1,(t.rec.every|0)||1); }
+function afterCur(t){ return t.next ?? t.rec.start; }
+
+/* ---------- Rotation ----------
+   rotation = Reihenfolge der Personen, rotStart = ab diesem Tag zählt der erste Termin.
+   Termine werden der Reihe nach verteilt; ist jemand inaktiv oder im Urlaub, übernimmt die nächste Person. */
+const rotCache=new Map();
+function rotIdx(t,o){
+  if(isAfter(t)) return t.rotN|0;
+  const start=t.rotStart ?? t.created, orig=o.orig;
+  if(orig<=start) return 0;
+  const pr=t.projectId&&project(t.projectId), sig=JSON.stringify([t.rec,t.projectId,t.offset,start,t.created,pr&&pr.rec]);
+  let c=rotCache.get(t.id);
+  if(!c || c.sig!==sig){ c={sig, days:[], upto:start-1}; rotCache.set(t.id,c); }
+  if(orig>c.upto){ const m=matcherFor(t); for(let dn=c.upto+1; dn<=orig+60; dn++) if(dn>=t.created && m(dn)) c.days.push(dn); c.upto=orig+60; }
+  let lo=0, hi=c.days.length; while(lo<hi){ const mid=(lo+hi)>>1; if(c.days[mid]<orig) lo=mid+1; else hi=mid; }
+  return lo;
+}
+function hasRot(t){ return !!(t.rotation && t.rotation.length); }
+// Wer ist für diesen Termin zuständig? null = alle
+function occAssignee(t,o,day){
+  if(t.scope!=="fam") return null;
+  if(day==null) day=todayNum();
+  if(hasRot(t)){
+    if(!o && !isAfter(t)) return null;
+    const rot=t.rotation, n=rot.length, i=((rotIdx(t,o)%n)+n)%n;
+    for(let k=0;k<n;k++){ const u=rot[(i+k)%n]; if(S.members[u] && memberActiveOn(u,day)) return u; }
+    return null;
+  }
+  return (t.assignee && memberActiveOn(t.assignee,day)) ? t.assignee : null;
+}
 function assigneeText(t){
+  if(hasRot(t)) return "abwechselnd: "+t.rotation.map(u=>esc(u===S.uid?"du":nameOfNom(u))).join(" → ");
   if(!t.assignee) return "für alle";
   if(memberActive(t.assignee)) return "für "+esc(nameOfNom(t.assignee));
-  return "für alle, solange "+(t.assignee===S.uid?"du inaktiv bist":esc(nameOfNom(t.assignee))+" inaktiv ist");
+  return "für alle, solange "+(t.assignee===S.uid?"du nicht da bist":esc(nameOfNom(t.assignee))+" nicht da ist");
 }
-function canAct(t){ if(t.scope!=="fam") return true; const r=R(); return r.check && (effAssignee(t)==null || t.assignee===S.uid || r.admin); }
+function occAssigneeText(t,o,day){
+  const a=occAssignee(t,o,day);
+  if(a) return "für "+esc(nameOfNom(a))+(hasRot(t)?" (abwechselnd)":"");
+  if(t.assignee && !hasRot(t)) return "für alle, solange "+(t.assignee===S.uid?"du nicht da bist":esc(nameOfNom(t.assignee))+" nicht da ist");
+  return "für alle";
+}
+function canAct(t,o){ if(t.scope!=="fam") return true; const r=R(); if(!r.check) return false; if(r.admin) return true; const a=occAssignee(t,o,todayNum()); return a==null || a===S.uid; }
 function canEditItem(x){ return x.scope!=="fam" || R().edit; }
-function assignable(keep){ return Object.entries(S.members).filter(([u,m])=>rightsOf(m).check && (m.active!==false || u===keep)).map(([uid,m])=>({uid,name:m.name+(m.active===false?" (inaktiv)":""),color:m.color})).sort((a,b)=>a.name.localeCompare(b.name)); }
+function assignable(keep){ const kk=[].concat(keep||[]); return Object.entries(S.members).filter(([u,m])=>rightsOf(m).check && (m.active!==false || kk.includes(u))).map(([uid,m])=>({uid,name:m.name+(m.active===false?" (inaktiv)":""),color:m.color})).sort((a,b)=>a.name.localeCompare(b.name)); }
 function nameOf(uid){ if(uid===S.uid) return "dir"; return (S.members[uid]&&S.members[uid].name)||"ehemaligem Mitglied"; }
 function nameOfNom(uid){ if(uid===S.uid) return "dich"; return (S.members[uid]&&S.members[uid].name)||"ehemaliges Mitglied"; }
 function rightsSummary(m){ const r=rightsOf(m); if(r.admin) return "Admin"; const a=[]; if(r.edit) a.push("plant"); if(r.assign) a.push("weist zu"); if(r.check) a.push("hakt ab"); return a.length? joinDe(a).replace(/^./,c=>c.toUpperCase()) : "Nur ansehen"; }
-const inToday = t => t.scope!=="fam" || (R().check && memberActive(S.uid) && (effAssignee(t)==null || t.assignee===S.uid));
+// Filter für „Heute“/Tagesansicht, je Termin: (Aufgabe, Termin, angezeigter Tag)
+const inToday = (t,o,day) => { if(t.scope!=="fam") return true; if(!R().check || !memberActiveOn(S.uid, day??todayNum())) return false; const a=occAssignee(t,o,day); return a==null || a===S.uid; };
 
 /* ---------- Aufgaben & Projekte inaktiv schalten ----------
    inactive:true = ruht gerade. pauses = Zeiträume {from,to} (to=null: läuft noch),
@@ -354,6 +424,15 @@ const inToday = t => t.scope!=="fam" || (R().check && memberActive(S.uid) && (ef
 function pausedOn(x,dn){ return !!x && (x.pauses||[]).some(p=>dn>=p.from && (p.to==null || dn<=p.to)); }
 function taskActive(t){ const p=t.projectId&&project(t.projectId); return !t.inactive && !(p&&p.inactive); }
 function taskPaused(t,dn){ return pausedOn(t,dn) || (!!t.projectId && pausedOn(project(t.projectId),dn)); }
+const isOffNow = x => !!x && (!!x.inactive || pausedOn(x,todayNum()));
+function hasPlannedPause(x){ const T=todayNum(); return !!x && (x.pauses||[]).some(z=>z.to!=null && z.to>=T); }
+function pauseTag(x){
+  const T=todayNum();
+  if(x.inactive) return '<span class="tag">inaktiv</span>';
+  const z=(x.pauses||[]).filter(z=>z.to!=null && z.to>=T).sort((a,b)=>a.from-b.from)[0];
+  if(!z) return "";
+  return `<span class="tag">${z.from<=T?"pausiert bis "+fmtShort(z.to):"Pause ab "+fmtShort(z.from)}</span>`;
+}
 function setActive(x, active){
   const T=todayNum(), ps=(x.pauses||[]).filter(p=>p.to==null || p.to>=T-120), open=ps.find(p=>p.to==null);
   if(!active && !open) ps.push({from:T, to:null});
@@ -365,7 +444,16 @@ function activeBox(d, what){
   const p=d.projectId&&project(d.projectId);
   return `<div class="box"><div class="switch-row"><div><b>Aktiv</b><small>Ausgeschaltet ${what==="p"?"ruht das Projekt mit allen Aufgaben":"ruht die Aufgabe"}, zum Beispiel im Urlaub. Termine in dieser Zeit entfallen, nichts sammelt sich an.</small></div>
      <label class="switch"><input type="checkbox" data-bind="active" data-type="bool" data-rerender ${d.active?"checked":""} aria-label="Aktiv"><i></i></label></div>
-     ${what==="t"&&p&&p.inactive?`<p class="note">Das Projekt „${esc(p.name)}“ ist gerade inaktiv, daher ruht diese Aufgabe ohnehin.</p>`:""}</div>`;
+     ${what==="t"&&p&&p.inactive?`<p class="note">Das Projekt „${esc(p.name)}“ ist gerade inaktiv, daher ruht diese Aufgabe ohnehin.</p>`:""}
+     ${pausesHtml(d,what)}</div>`;
+}
+function pausesHtml(d,what){
+  const T=todayNum(), planned=(d.pauses||[]).map((z,i)=>({z,i})).filter(({z})=>z.to!=null && z.to>=T).sort((a,b)=>a.z.from-b.z.from);
+  return `<div class="rt" style="margin-top:12px"><span class="lbl">Pause planen</span>
+    ${planned.map(({z,i})=>`<div class="inline-row" style="margin:0 0 6px"><span style="flex:1">${z.from<=T?"Pausiert":"Pause"} vom ${fmtShort(z.from)} bis ${fmtShort(z.to)}</span><button class="more" data-a="rmPause" data-v="${i}" aria-label="Pause entfernen">✕</button></div>`).join("")}
+    <div class="inline-row" style="align-items:flex-end;margin:0"><label style="flex:1;min-width:120px"><span class="lbl">Von</span><input class="inp" type="date" id="pz-from" value="${iso(T)}"></label>
+      <label style="flex:1;min-width:120px"><span class="lbl">Bis</span><input class="inp" type="date" id="pz-to" value="${iso(T+7)}"></label><button class="btn" data-a="addPause">Hinzufügen</button></div>
+    <p class="note">In diesem Zeitraum ${what==="p"?"ruht das Projekt":"ruht die Aufgabe"} von selbst und läuft danach automatisch weiter. Wird erst mit „Speichern“ übernommen.</p></div>`;
 }
 const isFam = t => t.scope==="fam";
 
@@ -423,7 +511,7 @@ function undo(){
 
 /* ---------- Aktionen ---------- */
 function logEntry(key){ return D.log[key] || (D.log[key]={}); }
-function cleanEntry(key){ const L=D.log[key]; if(L && L.d==null && L.m==null && !L.s) delete D.log[key]; }
+function cleanEntry(key){ const L=D.log[key]; if(L && L.d==null && L.m==null && !L.s && !(L.c&&L.c.length)) delete D.log[key]; }
 function findOcc(key){
   const [tid,o]=key.split("|"); const t=D.tasks.find(x=>x.id===tid); if(!t) return null;
   const orig=+o; return occurrences(t, orig-2, orig+2).find(x=>x.orig===orig) || null;
@@ -434,25 +522,36 @@ function moveOcc(o, target){
   if(target===o.base && t.follow!=="shift") delete L.m; else L.m=target;
   cleanEntry(o.key);
 }
-function denyMsg(t){
+function denyMsg(t,o){
   if(t.scope==="fam" && !R().check) return "Du darfst Familien-Aufgaben nur ansehen.";
-  if(t.scope==="fam") return "Diese Aufgabe ist "+nameOf(t.assignee)+" zugewiesen.";
+  if(t.scope==="fam") return (hasRot(t)?"Dieser Termin ist ":"Diese Aufgabe ist ")+nameOf(occAssignee(t,o,todayNum()))+" zugewiesen.";
   return "";
 }
+// Bei „nach Erledigung“: nächsten Termin festlegen; bei Rotation: weiterzählen
+function advanceAfter(t,o,from){ if(isAfter(t) && o.orig===afterCur(t)){ t.next=from+afterN(t); if(hasRot(t)) t.rotN=(t.rotN|0)+1; } }
 function toggleDone(o){
-  if(!canAct(o.t)){ toast(denyMsg(o.t)); return; }
-  const T=todayNum();
+  if(!canAct(o.t,o)){ toast(denyMsg(o.t,o)); return; }
+  const T=todayNum(), t=o.t;
   change(()=>{
-    if(o.done){ const L=logEntry(o.key); delete L.d; delete L.by; cleanEntry(o.key); return; }
-    if(o.eff<T && o.t.movable) moveOcc(o,T);
-    const L=logEntry(o.key); L.d=T; if(o.t.scope==="fam") L.by=S.uid;
+    if(o.done){ const L=logEntry(o.key);
+      if(isAfter(t) && L.d!=null && t.next===L.d+afterN(t)){ t.next=o.orig; if(hasRot(t) && t.rotN) t.rotN--; }
+      delete L.d; delete L.by; cleanEntry(o.key); return; }
+    if(o.eff<T && t.movable) moveOcc(o,T);
+    const L=logEntry(o.key); L.d=T; if(t.scope==="fam") L.by=S.uid;
+    advanceAfter(t,o,T);
   });
   render();
+}
+function toggleItem(key, iid){
+  const o=findOcc(key); if(!o) return;
+  if(!canAct(o.t,o)){ toast(denyMsg(o.t,o)); return; }
+  change(()=>{ const L=logEntry(key), c=new Set(L.c||[]); if(c.has(iid)) c.delete(iid); else c.add(iid); if(c.size) L.c=[...c]; else delete L.c; cleanEntry(key); });
+  renderSheet(); render();
 }
 function replacedKeys(t){ const T=todayNum(); return new Set(occurrences(t,T-60,T+400).filter(o=>o.replaced).map(o=>o.key)); }
 function doMove(key,target){
   const o=findOcc(key); if(!o) return;
-  if(!canAct(o.t)){ toast(denyMsg(o.t)); return; }
+  if(!canAct(o.t,o)){ toast(denyMsg(o.t,o)); return; }
   if(target==null || target===o.eff){ closeSheet(); return; }
   const before=replacedKeys(o.t);
   change(()=>moveOcc(o,target));
@@ -465,12 +564,12 @@ function doMove(key,target){
 }
 function doSkip(key){
   const o=findOcc(key); if(!o) return;
-  if(!canAct(o.t)){ toast(denyMsg(o.t)); return; }
-  change(()=>{ logEntry(key).s=1; }); closeSheet(); render(); toast("Termin ausgelassen.",true);
+  if(!canAct(o.t,o)){ toast(denyMsg(o.t,o)); return; }
+  change(()=>{ logEntry(key).s=1; advanceAfter(o.t,o,o.eff); }); closeSheet(); render(); toast("Termin ausgelassen.",true);
 }
 function doAssign(taskId, uid){
   const t=D.tasks.find(x=>x.id===taskId); if(!t||!R().assign) return;
-  change(()=>{ t.assignee=uid||null; });
+  change(()=>{ t.assignee=uid||null; delete t.rotation; delete t.rotStart; delete t.rotN; });
   closeSheet(); render(); toast(uid? "Zugewiesen an "+nameOfNom(uid).replace(/^dich$/,"dich")+"." : "Für alle freigegeben.", true);
 }
 function reorder(item,dir){
@@ -593,7 +692,7 @@ async function firebaseBackend(cfg){
     unsubs.push(onSnapshot(fc("tasks"), qs=>{ fam.tasks=qs.docs.map(d=>d.data()); refresh(); }, onErr));
     unsubs.push(onSnapshot(fc("projects"), qs=>{ fam.projects=qs.docs.map(d=>d.data()); refresh(); }, onErr));
     unsubs.push(onSnapshot(query(fc("log"), where("orig",">=",todayNum()-200)), qs=>{
-      const l={}; qs.forEach(d=>{ const x=d.data(), e={}; for(const f of ["d","m","s","by"]) if(x[f]!=null) e[f]=x[f]; l[x.taskId+"|"+x.orig]=e; });
+      const l={}; qs.forEach(d=>{ const x=d.data(), e={}; for(const f of ["d","m","s","by","c"]) if(x[f]!=null) e[f]=x[f]; l[x.taskId+"|"+x.orig]=e; });
       fam.log=l; refresh();
     }, onErr));
     unsubs.push(onSnapshot(fd("private",S.uid), s=>{
@@ -678,7 +777,7 @@ async function firebaseBackend(cfg){
 /* =====================================================================
    Darstellung
    ===================================================================== */
-const ui={view:"today", day:todayNum(), reorder:false, welcome:null, msg:""};
+const ui={view:"today", day:todayNum(), reorder:false, welcome:null, msg:"", q:"", lf:"all", lp:"", statDays:7};
 const $app=document.getElementById("app"), $foot=document.getElementById("foot");
 const SV=(d,extra="")=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"${extra}>${d}</svg>`;
 const ICON={
@@ -773,16 +872,18 @@ function projProgress(pid, pOrig){
   return {done,total};
 }
 function rowHtml(o, meta, opts={}){
-  const m=[], t=o.t;
+  const m=[], t=o.t, dd=opts.day??todayNum();
   if(meta) m.push(meta);
   if(o.moved && o.eff!==o.orig && !meta) m.push("verschoben von "+fmtShort(o.orig));
   if(t.scope==="fam"){
     if(o.done){ const L=D.log[o.key]||{}; if(L.by) m.push("erledigt von "+(L.by===S.uid?"dir":esc(nameOfNom(L.by)))); }
-    else if(opts.showAssignee) m.push(assigneeText(t));
-    else m.push(t.assignee===S.uid? "Familie, für dich" : "Familie");
+    else if(opts.showAssignee) m.push(occAssigneeText(t,o,dd));
+    else m.push(occAssignee(t,o,dd)===S.uid? "Familie, für dich" : "Familie");
   }
   if(o.done && o.doneOn!=null && o.doneOn!==o.eff) m.push(fmtRel(o.doneOn));
-  const act=canAct(t);
+  const its=t.items||[];
+  if(its.length && !o.done){ const c=(D.log[o.key]||{}).c||[]; m.push("Liste "+its.filter(x=>c.includes(x.id)).length+"/"+its.length); }
+  const act=canAct(t,o);
   return `<div class="row${o.done?" done":""}${t.prio===1&&!o.done?" hi":""}">
     <button class="check${o.done?" on":""}${act?"":" locked"}" data-a="toggle" data-k="${o.key}" aria-pressed="${o.done}" ${act?"":'aria-disabled="true"'} aria-label="${esc(t.title)} ${o.done?"als offen markieren":"abhaken"}">${act||o.done?ICON.check:""}</button>
     <button class="row-main" data-a="occ" data-k="${o.key}">
@@ -816,6 +917,7 @@ function blocksHtml(items, opts){
 }
 function dayListHtml(day, filter, opts={}){
   const T=todayNum(), isToday=day===T;
+  opts=Object.assign({day}, opts);
   const {due,overdue,missed}=dayModel(day, filter);
   const open=[...overdue.map(o=>({o,over:true})), ...due.filter(o=>!o.done).map(o=>({o}))];
   const done=due.filter(o=>o.done);
@@ -847,7 +949,7 @@ function renderToday(){
   let h=`<header class="top"><div><h1 class="top-title">${WDL[p.wd]}, ${p.d}. ${MON[p.m-1]}</h1><div class="top-sub">${sub}</div></div>${total?ringHtml(doneN,total):""}</header>`;
   if(S.requests.length) h+=`<button class="notice-btn" data-a="go" data-v="family">${S.requests.length===1?"1 Person möchte":S.requests.length+" Personen möchten"} der Familie beitreten</button>`;
   h+=dayListHtml(T, inToday);
-  if(R().check && !memberActive(S.uid) && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Du bist für Familien-Aufgaben gerade inaktiv. Sie stehen unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
+  if(R().check && !memberActive(S.uid) && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Du bist für Familien-Aufgaben gerade abgemeldet (inaktiv oder im Urlaub). Sie stehen unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
   else if(!R().check && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Familien-Aufgaben siehst du unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
   return h;
 }
@@ -871,9 +973,10 @@ function renderFamily(){
   if(r.admin && S.requests.length){
     h+=`<section class="sec"><div class="sec-head"><h2>Möchten beitreten</h2><span class="count">${S.requests.length}</span></div><div class="list warn">${S.requests.map(q=>`<button class="lib-row" data-a="request" data-v="${q.uid}"><div><div class="row-title">${esc(q.name)}</div><div class="row-meta">Anfrage vom ${(d=>fmtShort(dnOf(d.getFullYear(),d.getMonth()+1,d.getDate())))(new Date(q.at))}</div></div><span class="chev">Prüfen ›</span></button>`).join("")}</div></section>`;
   }
-  if(!memberActive(S.uid)) h+=`<button class="notice-btn" data-a="member" data-v="${S.uid}">Du bist für Familien-Aufgaben inaktiv. Tippen zum Ändern.</button>`;
+  if(!memberActive(S.uid)) h+=`<button class="notice-btn" data-a="member" data-v="${S.uid}">Du bist für Familien-Aufgaben ${meM().active===false?"inaktiv":"im Urlaub bis "+fmtShort(meM().away.to)}. Tippen zum Ändern.</button>`;
   h+=`<section class="sec"><div class="sec-head"><h2>Heute in der Familie</h2></div>${dayListHtml(T, isFam, {showAssignee:true, tight:true})}</section>`;
-  h+=`<section class="sec"><div class="sec-head"><h2>Mitglieder</h2></div><div class="list">${mem.map(([uid,m])=>`<button class="lib-row" data-a="member" data-v="${uid}"><div class="mem"><span class="avatar" style="background:${m.color||"#888"}">${esc((m.name||"?").slice(0,1).toUpperCase())}</span><div><div class="row-title">${esc(m.name)}${uid===S.uid?' <span class="tag">du</span>':""}${m.active===false?' <span class="tag">inaktiv</span>':""}</div><div class="row-meta">${rightsSummary(m)}</div></div></div><span class="chev">›</span></button>`).join("")}</div></section>`;
+  h+=statsHtml();
+  h+=`<section class="sec"><div class="sec-head"><h2>Mitglieder</h2></div><div class="list">${mem.map(([uid,m])=>`<button class="lib-row" data-a="member" data-v="${uid}"><div class="mem"><span class="avatar" style="background:${m.color||"#888"}">${esc((m.name||"?").slice(0,1).toUpperCase())}</span><div><div class="row-title">${esc(m.name)}${uid===S.uid?' <span class="tag">du</span>':""}${memberTag(m)}</div><div class="row-meta">${rightsSummary(m)}</div></div></div><span class="chev">›</span></button>`).join("")}</div></section>`;
   if(r.admin){
     const code=(S.family&&S.family.code)||"";
     h+=`<section class="sec"><div class="sec-head"><h2>Einladen</h2></div><div class="box"><span class="lbl">Familien-Code</span><div class="code-big">${esc(code.slice(0,3)+" "+code.slice(3))}</div>
@@ -883,6 +986,26 @@ function renderFamily(){
   }
   return h;
 }
+/* ---------- Statistik: wer hat was erledigt ---------- */
+function statsHtml(){
+  const T=todayNum(), n=ui.statDays, from=T-n+1, per=new Map(), byId=new Map(D.tasks.map(t=>[t.id,t]));
+  for(const k in D.log){
+    const L=D.log[k]; if(L.d==null || !L.by || L.d<from || L.d>T) continue;
+    const t=byId.get(k.split("|")[0]); if(t && t.scope!=="fam") continue;
+    if(!per.has(L.by)) per.set(L.by,{n:0,tasks:new Map()});
+    const e=per.get(L.by), ti=t?t.title:"gelöschte Aufgabe"; e.n++; e.tasks.set(ti,(e.tasks.get(ti)||0)+1);
+  }
+  const rows=[...per.entries()].sort((a,b)=>b[1].n-a[1].n), max=Math.max(1,...rows.map(([,e])=>e.n));
+  let h=`<section class="sec"><div class="sec-head"><h2>Erledigt</h2><span class="count">${rows.reduce((s,[,e])=>s+e.n,0)} Familien-Aufgaben</span></div>
+    <div class="seg" role="radiogroup" style="margin-bottom:10px">${[[7,"7 Tage"],[30,"30 Tage"],[90,"90 Tage"]].map(([v,l])=>`<button role="radio" aria-checked="${n===v}" class="${n===v?"on":""}" data-a="statDays" data-v="${v}">${l}</button>`).join("")}</div>`;
+  if(!rows.length) return h+`<p class="note">In diesem Zeitraum wurde keine Familien-Aufgabe abgehakt.</p></section>`;
+  h+=`<div class="list">${rows.map(([u,e])=>{ const m=S.members[u], nm=m?m.name:"Ehemaliges Mitglied";
+    return `<details class="stat"><summary><span class="avatar" style="background:${(m&&m.color)||"#888"}">${esc(nm.slice(0,1).toUpperCase())}</span>
+      <div style="flex:1;min-width:0"><div style="display:flex;align-items:baseline"><span class="row-title">${esc(nm)}${u===S.uid?' <span class="tag">du</span>':""}</span><span class="stat-n">${e.n}</span></div><div class="bar"><i style="width:${Math.round(e.n/max*100)}%"></i></div></div></summary>
+      <div class="stat-tasks">${[...e.tasks.entries()].sort((a,b)=>b[1]-a[1]).map(([ti,c])=>`<div class="row-meta">${esc(ti)}: ${c}×</div>`).join("")}</div></details>`; }).join("")}</div>
+    <p class="note">Tippe auf eine Person, um zu sehen, was sie erledigt hat.</p></section>`;
+  return h;
+}
 function prioTag(x){ return x.prio===1?'<span class="tag hi">Hoch</span>':x.prio===3?'<span class="tag">Niedrig</span>':""; }
 function arrowsHtml(kind,x){
   const n=neighbours(x), name=esc(kind==="p"?x.name:x.title);
@@ -890,17 +1013,38 @@ function arrowsHtml(kind,x){
 }
 function libTaskRow(t){
   const ed=canEditItem(t);
-  let meta=(t.projectId ? offsetText(t.offset) : recText(t.rec)) + (t.movable?", verschiebbar":", fester Termin");
+  let meta=(t.projectId ? offsetText(t.offset) : recText(t.rec)+(isAfter(t)?", als Nächstes "+fmtRel(afterCur(t)):"")) + (isAfter(t)?"":t.movable?", verschiebbar":", fester Termin");
+  if((t.items||[]).length) meta+=", Checkliste ("+t.items.length+")";
   if(t.scope==="fam") meta+=", "+assigneeText(t);
-  const off=t.inactive?" is-off":"";
-  const inner=`<div><div class="row-title">${esc(t.title)}${t.projectId?prioTag(t):""}${t.inactive?'<span class="tag">inaktiv</span>':""}</div><div class="row-meta">${meta}</div></div>`;
+  const off=isOffNow(t)?" is-off":"";
+  const inner=`<div><div class="row-title">${esc(t.title)}${t.projectId?prioTag(t):""}${pauseTag(t)}</div><div class="row-meta">${meta}</div></div>`;
   if(ui.reorder && ed) return `<div class="lib-row${t.prio===1?" hi":""}${off}">${inner}${arrowsHtml("t",t)}</div>`;
   if(!ed) return `<button class="lib-row${t.prio===1?" hi":""}${off}" data-a="viewTask" data-v="${t.id}">${inner}<span class="chev">${R().assign?"Zuweisen ›":""}</span></button>`;
   return `<button class="lib-row${t.prio===1?" hi":""}${off}" data-a="editTask" data-v="${t.id}">${inner}<span class="chev">›</span></button>`;
 }
+/* ---------- Suche & Filter ---------- */
+function libFiltering(){ return !ui.reorder && (!!ui.q.trim() || ui.lf!=="all" || !!ui.lp); }
+function textHit(x,q){ return [x.title||x.name||"", x.note||"", ...(x.items||[]).map(i=>i.text)].join(" ").toLocaleLowerCase("de").includes(q); }
+function lfHit(x,p){ if(ui.lf==="on") return !isOffNow(x) && !isOffNow(p); if(ui.lf==="off") return isOffNow(x)||isOffNow(p)||hasPlannedPause(x)||hasPlannedPause(p); return true; }
+function taskHit(t){
+  const q=ui.q.trim().toLocaleLowerCase("de"), p=t.projectId?project(t.projectId):null;
+  if(q && !textHit(t,q) && !(p&&textHit(p,q))) return false;
+  if(!lfHit(t,p)) return false;
+  if(ui.lp){ if(t.scope==="me") return ui.lp===S.uid; if(!(t.assignee===ui.lp || (t.rotation||[]).includes(ui.lp))) return false; }
+  return true;
+}
+function projHit(x){
+  const q=ui.q.trim().toLocaleLowerCase("de");
+  if(q && !textHit(x,q)) return false;
+  if(ui.lp && !(x.scope==="me" && ui.lp===S.uid)) return false;
+  return lfHit(x,null);
+}
 function libScopeHtml(scope){
-  const blocks=[...D.projects, ...D.tasks.filter(t=>!t.projectId)].filter(x=>x.scope===scope).sort(byPrio);
+  const flt=libFiltering();
+  let blocks=[...D.projects, ...D.tasks.filter(t=>!t.projectId)].filter(x=>x.scope===scope).sort(byPrio);
+  if(flt) blocks=blocks.filter(x=>x.name!==undefined ? (projHit(x) || D.tasks.some(t=>t.projectId===x.id && taskHit(t))) : taskHit(x));
   const canEd = scope==="me" || R().edit;
+  if(flt && !blocks.length) return `<p class="note" style="margin-top:0">Keine Treffer.</p>`;
   if(!blocks.length) return `<div class="empty" style="margin-top:0"><p>${scope==="me"?"Noch keine persönlichen Aufgaben. Die siehst nur du.":"Noch keine Familien-Aufgaben."}</p>${canEd?`<div class="toolbar" style="justify-content:center"><button class="btn primary" data-a="newTask" data-scope="${scope}">Aufgabe anlegen</button><button class="btn" data-a="newProject" data-scope="${scope}">Projekt anlegen</button></div>`:""}</div>`;
   let h="";
   for(const [pv,pl] of PRIO){
@@ -908,12 +1052,13 @@ function libScopeHtml(scope){
     h+=`<div class="prio-lbl">Priorität ${pl.toLowerCase()}</div><div class="list">`;
     for(const x of group){
       if(x.name!==undefined){
-        const ts=D.tasks.filter(t=>t.projectId===x.id).sort(byPrio);
-        const head=`<div><div class="row-title" style="font-weight:700"><span class="pdot" style="display:inline-block;margin-right:8px;vertical-align:0"></span>${esc(x.name)}${x.inactive?'<span class="tag">inaktiv</span>':""}</div><div class="row-meta">Projekt, ${recText(x.rec)}</div></div>`;
-        h+=`<div class="pblock${x.inactive?" is-off":""}" style="--pc:${x.color}">`;
+        let ts=D.tasks.filter(t=>t.projectId===x.id).sort(byPrio);
+        if(flt) ts=ts.filter(taskHit);
+        const head=`<div><div class="row-title" style="font-weight:700"><span class="pdot" style="display:inline-block;margin-right:8px;vertical-align:0"></span>${esc(x.name)}${pauseTag(x)}</div><div class="row-meta">Projekt, ${recText(x.rec)}</div></div>`;
+        h+=`<div class="pblock${isOffNow(x)?" is-off":""}" style="--pc:${x.color}">`;
         h+= ui.reorder&&canEd ? `<div class="lib-row phead-btn">${head}${arrowsHtml("p",x)}</div>` : canEd ? `<button class="lib-row phead-btn" data-a="editProject" data-v="${x.id}">${head}<span class="chev">›</span></button>` : `<div class="lib-row phead-btn">${head}</div>`;
         h+= ts.map(libTaskRow).join("");
-        if(!ui.reorder && canEd) h+=`<button class="add-in" data-a="newTask" data-v="${x.id}" data-scope="${scope}">+ Aufgabe in diesem Projekt</button>`;
+        if(!ui.reorder && !flt && canEd) h+=`<button class="add-in" data-a="newTask" data-v="${x.id}" data-scope="${scope}">+ Aufgabe in diesem Projekt</button>`;
         h+=`</div>`;
       } else h+=libTaskRow(x);
     }
@@ -926,7 +1071,20 @@ function renderLib(){
   let h=`<header class="top"><div><h1 class="top-title">Aufgaben & Projekte</h1><div class="top-sub">In dieser Reihenfolge erscheinen sie in der Tagesansicht.</div></div></header>`;
   h+=`<div class="toolbar"><button class="btn${ui.reorder?" primary":""}" data-a="reorderToggle">${ui.reorder?"Fertig":"Reihenfolge ändern"}</button>${ui.reorder?"":`<button class="btn" data-a="newTask">+ Aufgabe</button><button class="btn" data-a="newProject">+ Projekt</button>`}</div>`;
   if(ui.reorder) h+=`<p class="note">Verschieben geht innerhalb der gleichen Priorität. Um etwas in eine andere Gruppe zu bringen, ändere seine Priorität.</p>`;
-  h+=`<section class="sec"><div class="sec-head"><h2>${ICON.lock.replace("<svg",'<svg class="h-ic"')}Persönlich</h2><span class="count">nur für dich</span></div>${libScopeHtml("me")}</section>`;
+  else {
+    const mem=Object.entries(S.members).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+    h+=`<input class="inp" type="search" id="lib-q" placeholder="Suchen in Namen, Notizen, Checklisten" value="${esc(ui.q)}" autocomplete="off" aria-label="Aufgaben und Projekte durchsuchen" style="margin-top:14px">
+      <div class="filters">${[["all","Alle"],["on","Aktiv"],["off","Inaktiv & Pausen"]].map(([v,l])=>`<button class="chip${ui.lf===v?" on":""}" data-a="libF" data-v="${v}" aria-pressed="${ui.lf===v}">${l}</button>`).join("")}
+      ${mem.length>1?`<select class="inp inline" id="lib-p" aria-label="Nach Person filtern"><option value="">Alle Personen</option>${mem.map(([u,m])=>`<option value="${u}"${ui.lp===u?" selected":""}>${esc(u===S.uid?m.name+" (du)":m.name)}</option>`).join("")}</select>`:""}
+      ${libFiltering()?`<button class="link-btn" data-a="libReset">Zurücksetzen</button>`:""}</div>`;
+  }
+  h+=`<div id="lib-res">${libResultsHtml()}</div>`;
+  return h;
+}
+function libResultsHtml(){
+  const r=R(), showMe=!ui.lp || ui.lp===S.uid || ui.reorder;
+  let h="";
+  if(showMe) h+=`<section class="sec"><div class="sec-head"><h2>${ICON.lock.replace("<svg",'<svg class="h-ic"')}Persönlich</h2><span class="count">nur für dich</span></div>${libScopeHtml("me")}</section>`;
   h+=`<section class="sec"><div class="sec-head"><h2>${ICON.people.replace("<svg",'<svg class="h-ic"')}Familie</h2><span class="count">${r.edit?"du darfst planen":"nur ansehen"}</span></div>${libScopeHtml("fam")}</section>`;
   return h;
 }
@@ -934,7 +1092,7 @@ function renderLib(){
 /* ---------- Wiederholungsregeln ---------- */
 function recMatch(r,dn){
   if(!r || dn<r.start) return false;
-  if(r.type==="once") return dn===r.start;
+  if(r.type==="once" || r.type==="after") return dn===r.start;
   if(r.end!=null && dn>r.end) return false;
   const ev=Math.max(1, (r.every|0)||1), p=parts(dn);
   switch(r.type){
@@ -961,6 +1119,7 @@ function recText(r){
   switch(r.type){
     case "once": return "Einmalig am "+fmtLong(r.start);
     case "daily": t= ev===1?"Täglich":`Alle ${ev} Tage`; break;
+    case "after": t= "Wieder "+(ev===1?"1 Tag":ev+" Tage")+" nach dem Erledigen"; break;
     case "weekly":{ const ds=r.weekdays.slice().sort().map(i=>WD[i]); t=(ev===1?"Jede Woche":`Alle ${ev} Wochen`)+(ds.length?": "+ds.join(", "):""); break; }
     case "monthly":{ const ds=r.monthDays.slice().sort((a,b)=>a-b).map(d=>d===32?"letzten Tag":d+"."); t=(ev===1?"Monatlich":`Alle ${ev} Monate`)+(ds.length?" am "+joinDe(ds):""); break; }
     case "yearly":{ const ds=r.yearDates.slice().sort((a,b)=>a.m-b.m||a.d-b.d).map(x=>x.d+"."+x.m+"."); t=(ev===1?"Jährlich":`Alle ${ev} Jahre`)+(ds.length?" am "+joinDe(ds):""); break; }
@@ -977,6 +1136,7 @@ function matcherFor(t){
 }
 function scheduleText(t){
   if(t.projectId){ const p=project(t.projectId); return p? offsetText(t.offset)+" ("+recText(p.rec)+")" : "Projekt fehlt"; }
+  if(isAfter(t)) return recText(t.rec)+", nächster Termin "+fmtShort(afterCur(t));
   return recText(t.rec);
 }
 function shiftSum(t,orig){ let s=0; for(const x of t.shifts||[]) if(orig>x.after) s+=x.delta; return s; }
@@ -984,6 +1144,15 @@ function shiftSum(t,orig){ let s=0; for(const x of t.shifts||[]) if(orig>x.after
 /* ---------- Termine einer Aufgabe berechnen ----------
    orig = Termin laut Regel, base = orig + Serienverschiebung, eff = tatsächlicher Tag */
 function occurrences(t, from, to){
+  if(isAfter(t)){ // ein offener Termin + alle bekannten aus dem Protokoll
+    const r=t.rec, set=new Set(), cur=afterCur(t), pre=t.id+"|";
+    if(r.end==null || cur<=r.end) set.add(cur);
+    for(const k in D.log) if(k.startsWith(pre)) set.add(+k.slice(pre.length));
+    return [...set].sort((a,b)=>a-b).map(orig=>{
+      const key=pre+orig, L=D.log[key]||{};
+      return {t, key, orig, base:orig, eff:(L.m!=null?L.m:orig), moved:L.m!=null, done:L.d!=null, doneOn:L.d, skip:!!L.s, replaced:null};
+    });
+  }
   const match=matcherFor(t), set=new Set();
   for(let dn=from; dn<=to; dn++) if(dn>=t.created && match(dn)) set.add(dn);
   const pre=t.id+"|";
@@ -1008,24 +1177,25 @@ function occurrences(t, from, to){
 /* ---------- Was steht an einem Tag an? ---------- */
 function dayModel(day, filter){
   const T=todayNum(), due=[], overdue=[], missed=[];
-  for(const t of (filter? D.tasks.filter(filter) : D.tasks)){
+  for(const t of D.tasks){
     const occ=occurrences(t, Math.min(day,T)-75, day+5).filter(o=>!o.replaced && !o.skip && (o.done || !taskPaused(t,o.eff)));
+    const keep=o=>!filter || filter(t,o,day);
     let hideAfter=null;
-    if(day===T && taskActive(t)){
-      const pending=occ.filter(o=>!o.done && o.eff<T && o.eff>=T-60);
+    if(day===T && !taskPaused(t,T)){
+      const pending=occ.filter(o=>!o.done && o.eff<T && (isAfter(t) || o.eff>=T-60));
       if(pending.length){
         if(t.movable){
-          if(t.follow==="keep") overdue.push(...pending);
-          else if(t.follow==="shift"){ overdue.push(pending[0]); hideAfter=pending[0].orig; }
+          if(t.follow==="keep") overdue.push(...pending.filter(keep));
+          else if(t.follow==="shift"){ if(keep(pending[0])) overdue.push(pending[0]); hideAfter=pending[0].orig; }
           else { // replace: nur der jüngste offene Termin zählt, und nur wenn heute nicht schon einer fällig ist
             const last=pending[pending.length-1];
             const newer=occ.some(o=>o.orig>last.orig && o.eff<=T);
-            if(!newer) overdue.push(last);
+            if(!newer && keep(last)) overdue.push(last);
           }
-        } else missed.push(...pending.filter(o=>o.eff>=T-3));
+        } else missed.push(...pending.filter(o=>o.eff>=T-3).filter(keep));
       }
     }
-    for(const o of occ) if(o.eff===day && !(hideAfter!=null && o.orig>hideAfter && !o.done)) due.push(o);
+    for(const o of occ) if(o.eff===day && !(hideAfter!=null && o.orig>hideAfter && !o.done) && keep(o)) due.push(o);
   }
   return {due, overdue, missed};
 }
@@ -1092,11 +1262,18 @@ function menuSheet(){
 }
 
 /* ---------- Wiederholungs-Editor ---------- */
-function recEditor(r){
-  const types=[["once","Einmalig"],["daily","Täglich"],["weekly","Wöchentlich"],["monthly","Monatlich"],["yearly","Jährlich"]];
+function recEditor(r, allowAfter){
+  const types=[["once","Einmalig"],["daily","Täglich"],["weekly","Wöchentlich"],["monthly","Monatlich"],["yearly","Jährlich"], ...(allowAfter?[["after","Nach Erledigung"]]:[])];
   let h=`<div class="field"><span>Wiederholung</span><div class="seg" role="radiogroup">${types.map(([v,l])=>`<button role="radio" aria-checked="${r.type===v}" class="${r.type===v?"on":""}" data-a="rectype" data-v="${v}">${l}</button>`).join("")}</div></div>`;
   if(r.type==="once"){
     h+=`<label class="field"><span>Datum</span><input class="inp" type="date" data-bind="rec.start" data-type="date" value="${iso(r.start)}"></label>`;
+    return h;
+  }
+  if(r.type==="after"){
+    h+=`<div class="inline-row"><span>Wieder</span><input class="inp sm" type="number" min="1" max="999" inputmode="numeric" data-bind="rec.every" data-type="num" data-live value="${r.every||1}"><span>${(r.every|0)===1?"Tag":"Tage"} nach dem Erledigen</span></div>
+      <p class="note" style="margin:-6px 0 14px">Der nächste Termin richtet sich nach dem Tag, an dem abgehakt wird. Wird ein Termin später erledigt, rückt der nächste entsprechend nach hinten.</p>`;
+    h+=`<div class="inline-row" style="align-items:flex-end"><label style="flex:1;min-width:150px"><span class="lbl">Erster Termin</span><input class="inp" type="date" data-bind="rec.start" data-type="date" value="${iso(r.start)}"></label>
+       <label style="flex:1;min-width:150px"><span class="lbl">Endet am (optional)</span><input class="inp" type="date" data-bind="rec.end" data-type="date" value="${r.end!=null?iso(r.end):""}"></label></div>`;
     return h;
   }
   const unit={daily:["Tag","Tage"],weekly:["Woche","Wochen"],monthly:["Monat","Monate"],yearly:["Jahr","Jahre"]}[r.type];
@@ -1136,7 +1313,7 @@ function nextN(match, from, n){ const out=[]; for(let dn=from; dn<from+800 && ou
 function newTaskDraft(projectId, scope){
   const T=todayNum(), p=projectId&&project(projectId);
   const sc = p ? p.scope : (scope || "me");
-  return {id:null, title:"", scope:(sc==="fam"&&!R().edit)?"me":sc, projectId:projectId||null, offset:0, rec:newRec("weekly",T), movable:true, follow:"replace", replaceDays:2, prio:2, assignee:null, active:true};
+  return {id:null, title:"", scope:(sc==="fam"&&!R().edit)?"me":sc, projectId:projectId||null, offset:0, rec:newRec("weekly",T), movable:true, follow:"replace", replaceDays:2, prio:2, assignee:null, rotation:[], active:true, pauses:[], note:"", items:[]};
 }
 function taskForm(){
   const d=sheet.draft, isNew=!d.id, fam=d.scope==="fam";
@@ -1145,8 +1322,10 @@ function taskForm(){
   h+=scopeSeg(d);
   if(fam){
     if(R().assign){
-      h+=`<label class="field"><span>Zuständig</span><select class="inp" data-bind="assignee" data-type="str"><option value="">Alle, wer zuerst kommt</option>${assignable(d.assignee).map(m=>`<option value="${m.uid}"${d.assignee===m.uid?" selected":""}>${esc(m.uid===S.uid?m.name+" (du)":m.name)}</option>`).join("")}</select></label>`;
-    } else if(d.assignee) h+=`<p class="note">Zuständig: ${esc(nameOfNom(d.assignee))}</p>`;
+      h+=`<label class="field"><span>Zuständig</span><select class="inp" data-bind="assignee" data-type="str" data-rerender><option value="">Alle, wer zuerst kommt</option>${assignable(d.assignee).map(m=>`<option value="${m.uid}"${d.assignee===m.uid?" selected":""}>${esc(m.uid===S.uid?m.name+" (du)":m.name)}</option>`).join("")}<option value="__rot"${d.assignee==="__rot"?" selected":""}>Abwechselnd (Rotation) …</option></select></label>`;
+      if(d.assignee==="__rot") h+=rotationEditor(d);
+    } else if(d.assignee==="__rot") h+=`<p class="note">Zuständig: abwechselnd ${d.rotation.map(u=>esc(u===S.uid?"du":nameOfNom(u))).join(" → ")}</p>`;
+    else if(d.assignee) h+=`<p class="note">Zuständig: ${esc(nameOfNom(d.assignee))}</p>`;
   }
   h+=prioSeg(d.prio);
   const projs=D.projects.filter(p=>p.scope===d.scope).sort(byPrio);
@@ -1156,8 +1335,10 @@ function taskForm(){
     h+=`<div class="box"><span class="lbl">Fällig</span><div class="inline-row" style="margin:0"><input class="inp sm" type="number" min="0" max="365" inputmode="numeric" data-a="offN" data-live value="${Math.abs(o)}"><span>Tage</span>
       <select class="inp inline" data-a="offDir"><option value="1"${o>=0?" selected":""}>nach</option><option value="-1"${o<0?" selected":""}>vor</option></select><span>dem Projekttermin</span></div>
       <p class="note">Projekttermin: ${p?dot(recText(p.rec)):""} 0 Tage heißt: am selben Tag.</p></div>`;
-  } else h+=recEditor(d.rec);
-
+  } else h+=recEditor(d.rec, true);
+  h+=notesEditor(d);
+  const aft=!d.projectId && d.rec.type==="after";
+  if(!aft){
   h+=`<div class="box"><div class="switch-row"><div><b>Verschiebbar</b><small>Ein Termin kann auf einen anderen Tag gelegt werden. Nicht erledigte Termine wandern auf heute.</small></div>
      <label class="switch"><input type="checkbox" data-bind="movable" data-type="bool" data-rerender ${d.movable?"checked":""} aria-label="Verschiebbar"><i></i></label></div>`;
   if(d.movable){
@@ -1168,13 +1349,51 @@ function taskForm(){
       <label class="radio"><input type="radio" name="follow" value="shift" data-bind="follow" data-type="str" data-rerender ${d.follow==="shift"?"checked":""}><div><b>Die ganze Serie rückt mit</b><small>Alle folgenden Termine verschieben sich um gleich viele Tage.</small></div></label>
       <div class="preview" id="preview">${followPreview(d)}</div></div>`;
   }
-  h+=`</div>`+activeBox(d,"t")+`<p class="note err" id="form-err"></p>`;
+  h+=`</div>`;
+  }
+  h+=activeBox(d,"t")+`<p class="note err" id="form-err"></p>`;
   h+=`<div class="sheet-actions">${isNew?"":`<button class="btn danger" data-a="delTask">Löschen</button>`}<span class="grow"></span><button class="btn primary" data-a="saveTask">${isNew?"Aufgabe anlegen":"Änderungen speichern"}</button></div>`;
   return h;
+}
+function notesEditor(d){
+  const items=d.items||[];
+  return `<label class="field"><span>Notiz (optional)</span><textarea class="inp plain" data-bind="note" placeholder="z. B. Filtergröße, Ablauf, Hinweise" maxlength="2000">${esc(d.note||"")}</textarea></label>
+    <div class="field"><span>Checkliste (optional)</span>${items.map((x,i)=>`<div class="cl-row"><input class="inp" data-a="itemText" data-i="${i}" value="${esc(x.text)}" placeholder="Punkt ${i+1}" maxlength="200" aria-label="Punkt ${i+1}"><button class="more" data-a="rmItem" data-v="${i}" aria-label="Punkt ${i+1} entfernen">✕</button></div>`).join("")}
+    <button class="link-btn" data-a="addItem">+ Punkt hinzufügen</button>${items.length?`<p class="note">Die Haken gelten pro Termin und sind beim nächsten Termin wieder leer.</p>`:""}</div>`;
+}
+function rotationEditor(d){
+  const rot=d.rotation||(d.rotation=[]), ms=assignable(rot);
+  let h=`<div class="box"><span class="lbl">Reihenfolge</span><div class="chips">${ms.map(m=>{ const i=rot.indexOf(m.uid);
+    return `<button class="chip${i>=0?" on":""}" data-a="rotTog" data-v="${m.uid}" aria-pressed="${i>=0}">${i>=0?`<span class="rot-n">${i+1}</span>`:""}${esc(m.uid===S.uid?m.name+" (du)":m.name)}</button>`; }).join("")}</div>
+    <p class="note">Tippe die Personen in der gewünschten Reihenfolge an. Die Termine werden der Reihe nach verteilt. Ist jemand inaktiv oder im Urlaub, übernimmt die nächste Person.</p>`;
+  const pv=rotPreview(d); if(pv) h+=`<div class="preview">${pv}</div>`;
+  return h+`</div>`;
+}
+function rotPreview(d){
+  const rot=d.rotation||[]; if(rot.length<2) return "";
+  const nm=u=>u?esc(u===S.uid?"du":nameOfNom(u)):"alle";
+  if(!d.projectId && d.rec.type==="after") return "Reihenfolge: "+rot.map(nm).join(", dann ")+", dann wieder von vorn.";
+  if(!d.projectId && recValid(d.rec)) return "";
+  const T=todayNum(), tmp={id:"__rotpreview", scope:"fam", projectId:d.projectId, offset:d.offset|0, rec:d.rec, created:d.created??T, rotStart:d.rotStart??T, rotation:rot};
+  const days=nextN(matcherFor(tmp), T, 4); if(!days.length) return "";
+  return "Nächste Termine: "+days.map(dn=>fmtShort(dn)+" "+nm(occAssignee(tmp,{orig:dn},dn))).join(" · ");
+}
+function applyAssign(t,d){
+  if(d.assignee==="__rot"){
+    const same=JSON.stringify(t.rotation||[])===JSON.stringify(d.rotation);
+    t.assignee=null; t.rotation=[...d.rotation];
+    if(!same || t.rotStart==null || d.rotStart==null){ t.rotStart=todayNum(); t.rotN=0; }
+  } else { t.assignee=d.assignee||null; delete t.rotation; delete t.rotStart; delete t.rotN; }
+}
+function applyNotes(t,d){
+  const note=(d.note||"").trim(), items=(d.items||[]).map(x=>({id:x.id, text:(x.text||"").trim()})).filter(x=>x.text);
+  if(note) t.note=note; else delete t.note;
+  if(items.length) t.items=items; else delete t.items;
 }
 function followPreview(d){ return followPreviewRaw(d).replace(/\.\./g,"."); }
 function followPreviewRaw(d){
   const T=todayNum();
+  if(!d.projectId && d.rec.type==="after") return "";
   let match;
   if(d.projectId){ const p=project(d.projectId); if(!p) return ""; const off=d.offset|0; match=dn=>recMatch(p.rec,dn-off); }
   else { if(recValid(d.rec)) return ""; match=dn=>recMatch(d.rec,dn); }
@@ -1194,20 +1413,30 @@ function saveTask(){
   if(!d.title){ err.textContent="Gib der Aufgabe einen Namen."; return; }
   if(!d.projectId){ const e=recValid(d.rec); if(e){ err.textContent=e; return; } }
   if(d.scope==="fam" && !R().edit){ err.textContent="Du darfst keine Familien-Aufgaben anlegen oder ändern."; return; }
-  const T=todayNum(), assignee = d.scope==="fam" ? (d.assignee||null) : undefined;
+  if(d.scope==="fam" && R().assign && d.assignee==="__rot" && (d.rotation||[]).length<2){ err.textContent="Wähle für „Abwechselnd“ mindestens zwei Personen."; return; }
+  const T=todayNum(), aft=!d.projectId && d.rec.type==="after";
+  if(aft){ d.movable=true; d.follow="keep"; }
   change(()=>{
     if(d.id){
       const t=D.tasks.find(x=>x.id===d.id);
       const ruleChanged = JSON.stringify([t.rec,t.projectId,t.offset])!==JSON.stringify([d.rec,d.projectId,d.offset]);
+      const wasAfter=isAfter(t), oldStart=t.rec&&t.rec.start;
       if(t.projectId!==d.projectId) t.order=nextOrder({projectId:d.projectId, scope:t.scope});
       Object.assign(t,{prio:d.prio, title:d.title, projectId:d.projectId, offset:d.offset|0, rec:d.projectId?null:d.rec, movable:d.movable, follow:d.follow, replaceDays:Math.max(0,d.replaceDays|0)});
-      if(t.scope==="fam" && R().assign) t.assignee=assignee;
+      if(t.scope==="fam" && R().assign) applyAssign(t,d);
       if(ruleChanged || d.follow!=="shift") t.shifts=[];
-      if(!!t.inactive===!!d.active) setActive(t, !!d.active);
+      if(!aft) delete t.next;
+      else if(!wasAfter || oldStart!==t.rec.start){ // neu begonnen: alte offene Reste aufräumen
+        delete t.next; if(hasRot(t)) t.rotN=0;
+        for(const k of Object.keys(D.log)) if(k.startsWith(t.id+"|") && D.log[k].d==null && !D.log[k].s) delete D.log[k];
+      }
+      applyNotes(t,d);
+      t.pauses=clone(d.pauses||[]); setActive(t, !!d.active);
     } else {
-      const t={id:uid(), scope:d.scope, prio:d.prio, order:nextOrder({projectId:d.projectId, scope:d.scope}), title:d.title, projectId:d.projectId, offset:d.offset|0, rec:d.projectId?null:d.rec, movable:d.movable, follow:d.follow, replaceDays:Math.max(0,d.replaceDays|0), shifts:[], created:(!d.projectId && d.rec.type==="once")? Math.min(T,d.rec.start) : T};
-      if(d.scope==="fam"){ t.assignee=R().assign? assignee : null; t.createdBy=S.uid; }
-      if(!d.active) setActive(t,false);
+      const t={id:uid(), scope:d.scope, prio:d.prio, order:nextOrder({projectId:d.projectId, scope:d.scope}), title:d.title, projectId:d.projectId, offset:d.offset|0, rec:d.projectId?null:d.rec, movable:d.movable, follow:d.follow, replaceDays:Math.max(0,d.replaceDays|0), shifts:[], created:(!d.projectId && (d.rec.type==="once"||aft))? Math.min(T,d.rec.start) : T};
+      if(d.scope==="fam"){ t.assignee=null; if(R().assign) applyAssign(t,d); t.createdBy=S.uid; }
+      applyNotes(t,d);
+      t.pauses=clone(d.pauses||[]); setActive(t, !!d.active);
       D.tasks.push(t);
     }
   });
@@ -1218,16 +1447,17 @@ function saveTask(){
 function viewTaskSheet(){
   const t=D.tasks.find(x=>x.id===sheet.id); if(!t) return head("Aufgabe")+"<p>Nicht mehr vorhanden.</p>";
   let h=head(esc(t.title));
-  h+=`<p class="note" style="margin:-4px 0 16px">${esc(dot(scheduleText(t)))} ${t.movable?"Verschiebbar.":"Fester Termin."} Zuständig: ${t.assignee?esc(nameOfNom(t.assignee)):"alle"}.</p>`;
+  h+=`<p class="note" style="margin:-4px 0 16px">${esc(dot(scheduleText(t)))} ${t.movable?"Verschiebbar.":"Fester Termin."} Zuständig: ${assigneeText(t).replace(/^für /,"")}.</p>`;
+  if(t.note) h+=`<div class="box" style="white-space:pre-wrap">${esc(t.note)}</div>`;
   if(R().assign) h+=assignHtml(t);
   else h+=`<p class="note">Du darfst Familien-Aufgaben nur ansehen.</p>`;
   return h;
 }
 function assignHtml(t){
   return `<div class="field"><span>Zuweisen an</span><div class="chips">
-    <button class="chip${t.assignee==null?" on":""}" data-a="assign" data-k="${t.id}" data-v="">Alle</button>
+    <button class="chip${t.assignee==null&&!hasRot(t)?" on":""}" data-a="assign" data-k="${t.id}" data-v="">Alle</button>
     ${assignable(t.assignee).map(m=>`<button class="chip${t.assignee===m.uid?" on":""}" data-a="assign" data-k="${t.id}" data-v="${m.uid}">${esc(m.uid===S.uid?"Mir":m.name)}</button>`).join("")}
-  </div><p class="note">Zuweisen kannst du nur an Personen, die abhaken dürfen.</p></div>`;
+  </div><p class="note">${hasRot(t)?"Läuft gerade abwechselnd. Eine Auswahl hier beendet die Rotation. ":""}Zuweisen kannst du nur an Personen, die abhaken dürfen.</p></div>`;
 }
 
 /* ---------- Projekt ---------- */
@@ -1257,8 +1487,8 @@ function saveProject(){
   if(d.scope==="fam" && !R().edit){ err.textContent="Du darfst keine Familien-Projekte anlegen oder ändern."; return; }
   let id=d.id;
   change(()=>{
-    if(id){ const p=project(id); const ch=JSON.stringify(p.rec)!==JSON.stringify(d.rec); Object.assign(p,{name:d.name,color:d.color,rec:d.rec,prio:d.prio}); if(ch) D.tasks.filter(t=>t.projectId===id).forEach(t=>t.shifts=[]); if(!!p.inactive===!!d.active) setActive(p, !!d.active); }
-    else { id=uid(); const p={id, scope:d.scope, name:d.name, color:d.color, rec:d.rec, created:todayNum(), prio:d.prio, order:nextOrder({scope:d.scope})}; if(!d.active) setActive(p,false); D.projects.push(p); }
+    if(id){ const p=project(id); const ch=JSON.stringify(p.rec)!==JSON.stringify(d.rec); Object.assign(p,{name:d.name,color:d.color,rec:d.rec,prio:d.prio}); if(ch) D.tasks.filter(t=>t.projectId===id).forEach(t=>t.shifts=[]); p.pauses=clone(d.pauses||[]); setActive(p, !!d.active); }
+    else { id=uid(); const p={id, scope:d.scope, name:d.name, color:d.color, rec:d.rec, created:todayNum(), prio:d.prio, order:nextOrder({scope:d.scope})}; p.pauses=clone(d.pauses||[]); setActive(p, !!d.active); D.projects.push(p); }
   });
   render();
   if(!d.id){ openSheet({kind:"task", draft:newTaskDraft(id)}); toast("Projekt angelegt. Jetzt die erste Aufgabe dazu."); }
@@ -1268,10 +1498,15 @@ function saveProject(){
 /* ---------- Termin ---------- */
 function occSheet(){
   const o=findOcc(sheet.key); if(!o){ return head("Termin")+`<p>Dieser Termin existiert nicht mehr.</p>`; }
-  const T=todayNum(), t=o.t, act=canAct(t);
+  const T=todayNum(), t=o.t, act=canAct(t,o);
   let h=head(esc(t.title));
-  const who = t.scope==="fam" ? ` Familie, zuständig: ${t.assignee?esc(nameOfNom(t.assignee)):"alle"}.` : "";
+  const who = t.scope==="fam" ? ` Familie, ${occAssigneeText(t,o,Math.max(T,o.eff))}.` : "";
   h+=`<p class="note" style="margin:-4px 0 18px">${o.eff<T&&!o.done?"Fällig seit ":"Termin: "}${fmtLong(o.eff)}${o.moved&&o.eff!==o.orig?", ursprünglich "+dot(fmtShort(o.orig)):"."} ${esc(dot(scheduleText(t)))}${who}</p>`;
+  if(t.note) h+=`<div class="box" style="white-space:pre-wrap">${esc(t.note)}</div>`;
+  if((t.items||[]).length){
+    const c=new Set((D.log[o.key]||{}).c||[]);
+    h+=`<div class="field"><span>Checkliste (${t.items.filter(x=>c.has(x.id)).length}/${t.items.length})</span><div class="list">${t.items.map(x=>`<button class="citem${c.has(x.id)?" on":""}" data-a="citem" data-k="${o.key}" data-v="${x.id}" aria-pressed="${c.has(x.id)}" ${act?"":"disabled"}><span class="check${c.has(x.id)?" on":""}${act?"":" locked"}">${ICON.check}</span><span class="txt">${esc(x.text)}</span></button>`).join("")}</div></div>`;
+  }
   if(act){
     h+=`<div class="menu"><button class="btn${o.done?"":" primary"}" data-a="toggle" data-k="${o.key}" data-close="1">${o.done?"Wieder als offen markieren":"Abhaken"}</button></div>`;
     if(t.movable && !o.done){
@@ -1280,7 +1515,7 @@ function occSheet(){
       if(o.eff<T){ opts.unshift([T,"Heute"]); opts.pop(); }
       h+=`<div class="field" style="margin-top:20px"><span>Verschieben auf</span><div class="quick">${opts.map(([dn,l])=>`<button class="btn" data-a="move" data-k="${o.key}" data-v="${dn}">${l}<small>${fmtShort(dn)}</small></button>`).join("")}</div>
         <div class="inline-row" style="margin:0"><input class="inp" type="date" id="move-date" min="${iso(T)}" value="${iso(base+1)}" style="flex:1" aria-label="Anderes Datum"><button class="btn" data-a="moveDate" data-k="${o.key}">Verschieben</button></div>
-        <p class="note">${t.follow==="replace"?`Liegt das neue Datum ${t.replaceDays|0} Tage oder weniger vor dem nächsten Termin, entfällt dieser.`:t.follow==="shift"?"Alle folgenden Termine rücken um gleich viele Tage mit.":"Folgetermine bleiben unverändert."}</p></div>`;
+        <p class="note">${t.follow==="replace"?`Liegt das neue Datum ${t.replaceDays|0} Tage oder weniger vor dem nächsten Termin, entfällt dieser.`:t.follow==="shift"?"Alle folgenden Termine rücken um gleich viele Tage mit.":isAfter(t)?"Der nächste Termin richtet sich danach, wann abgehakt wird.":"Folgetermine bleiben unverändert."}</p></div>`;
     } else if(!t.movable && !o.done) h+=`<p class="note" style="margin-top:16px">Diese Aufgabe ist fest terminiert und kann nicht verschoben werden.</p>`;
   } else h+=`<div class="box notice">${esc(denyMsg(t))}</div>`;
   if(t.scope==="fam" && R().assign && !o.done) h+=`<div style="margin-top:20px">${assignHtml(t)}</div>`;
@@ -1300,7 +1535,12 @@ function memberSheet(){
   if(r.admin || self){
     const on=m.active!==false;
     h+=`<div class="box"><div class="switch-row"><div><b>Aktiv bei Familien-Aufgaben</b><small>${on?"":"Gerade inaktiv. "}Inaktiv bekommt ${self?"du":esc(m.name)} keine Familien-Aufgaben unter „Heute“ und kann nicht zugewiesen werden. Bereits zugewiesene Aufgaben stehen solange allen offen.</small></div>
-      <label class="switch"><input type="checkbox" data-a="mactive" ${on?"checked":""} aria-label="Aktiv bei Familien-Aufgaben"><i></i></label></div></div>`;
+      <label class="switch"><input type="checkbox" data-a="mactive" ${on?"checked":""} aria-label="Aktiv bei Familien-Aufgaben"><i></i></label></div>
+      <div class="rt" style="margin-top:12px"><span class="lbl">Urlaub planen</span>
+      ${m.away&&m.away.to>=todayNum()?`<div class="inline-row" style="margin:0 0 6px"><span style="flex:1">Urlaub vom ${fmtShort(m.away.from)} bis ${fmtShort(m.away.to)}</span><button class="more" data-a="awayRm" aria-label="Urlaub entfernen">✕</button></div>`:""}
+      <div class="inline-row" style="align-items:flex-end;margin:0"><label style="flex:1;min-width:120px"><span class="lbl">Von</span><input class="inp" type="date" id="aw-from" value="${iso(todayNum())}"></label>
+        <label style="flex:1;min-width:120px"><span class="lbl">Bis</span><input class="inp" type="date" id="aw-to" value="${iso(todayNum()+7)}"></label><button class="btn" data-a="awaySet">Eintragen</button></div>
+      <p class="note">In diesem Zeitraum ${self?"bist du":"ist "+esc(m.name)} automatisch abgemeldet und danach wieder dabei.</p></div></div>`;
   }
   if(self) h+=`<label class="field"><span>Dein Name</span><div class="inline-row" style="margin:0"><input class="inp" id="m-name" value="${esc(m.name)}" maxlength="40" style="flex:1"><button class="btn" data-a="renameSelf">Speichern</button></div></label>`;
   if(r.admin){
@@ -1409,6 +1649,7 @@ $sheet.addEventListener("input",e=>{
     if(el.dataset.bind==="rec.every") v=Math.max(1,v);
     setPath(sheet.draft, el.dataset.bind, v); updatePreview();
   }
+  if(el.dataset.a==="itemText" && sheet.draft.items){ const it=sheet.draft.items[+el.dataset.i]; if(it) it.text=el.value; }
   if(el.dataset.a==="offN"){ const dir=Math.sign(sheet.draft.offset|0)||1; sheet.draft.offset=(Math.min(365,parseInt(el.value,10)||0))*(dir<0?-1:1); updatePreview(); }
 });
 $sheet.addEventListener("change",e=>{
@@ -1438,7 +1679,8 @@ document.addEventListener("click",async e=>{
     case "menu": openSheet({kind:"menu"}); break;
     case "go": ui.view=v; ui.reorder=false; if(v!=="lib") ui.day=todayNum(); closeSheet(); render(); window.scrollTo(0,0); break;
     case "day": ui.day=+v; render(); break;
-    case "toggle":{ const o=findOcc(b.dataset.k); if(o){ toggleDone(o); if(b.dataset.close && canAct(o.t)) closeSheet(); } break; }
+    case "toggle":{ const o=findOcc(b.dataset.k); if(o){ toggleDone(o); if(b.dataset.close && canAct(o.t,o)) closeSheet(); } break; }
+    case "citem": toggleItem(b.dataset.k, v); break;
     case "occ": openSheet({kind:"occ", key:b.dataset.k}); break;
     case "move": doMove(b.dataset.k, +v); break;
     case "moveDate": doMove(b.dataset.k, fromIso($sheet.querySelector("#move-date").value)); break;
@@ -1447,8 +1689,8 @@ document.addEventListener("click",async e=>{
     case "newTask":{ const sc=b.dataset.scope || (ui.view==="family"?"fam":"me"); openSheet({kind:"task", draft:newTaskDraft(v||null, sc)}); break; }
     case "viewTask": openSheet({kind:"viewTask", id:v}); break;
     case "editTask":{ const t=D.tasks.find(x=>x.id===v); if(!t) break; if(!canEditItem(t)){ openSheet({kind:"viewTask", id:v}); break; }
-      openSheet({kind:"task", draft:Object.assign(newTaskDraft(), clone(t), {rec: clone(t.rec||newRec("weekly",todayNum())), assignee:t.assignee??null, active:!t.inactive})}); break; }
-    case "newProject":{ let sc=b.dataset.scope || (ui.view==="family"?"fam":"me"); if(sc==="fam"&&!R().edit) sc="me"; openSheet({kind:"project", draft:{id:null, scope:sc, name:"", prio:2, color:COLORS[D.projects.length%COLORS.length], rec:newRec("once",todayNum()+7), active:true}}); break; }
+      openSheet({kind:"task", draft:Object.assign(newTaskDraft(), clone(t), {rec: clone(t.rec||newRec("weekly",todayNum())), assignee:hasRot(t)?"__rot":(t.assignee??null), rotation:clone(t.rotation||[]), active:!t.inactive, items:clone(t.items||[]), note:t.note||""})}); break; }
+    case "newProject":{ let sc=b.dataset.scope || (ui.view==="family"?"fam":"me"); if(sc==="fam"&&!R().edit) sc="me"; openSheet({kind:"project", draft:{id:null, scope:sc, name:"", prio:2, color:COLORS[D.projects.length%COLORS.length], rec:newRec("once",todayNum()+7), active:true, pauses:[]}}); break; }
     case "editProject":{ const p=project(v); if(p && canEditItem(p)) openSheet({kind:"project", draft:Object.assign(clone(p),{active:!p.inactive})}); break; }
     case "saveTask": saveTask(); break;
     case "saveProject": saveProject(); break;
@@ -1467,13 +1709,25 @@ document.addEventListener("click",async e=>{
     case "prio": d.prio=+v; renderSheet(); break;
     case "rectype":{
       const old=d.rec, r=newRec(v, old.start); r.every=old.every||1; r.end=v==="once"?null:old.end;
+      if(v==="after" && (r.every|0)<2) r.every=7;
       if(old.weekdays.length) r.weekdays=old.weekdays; if(old.monthDays.length) r.monthDays=old.monthDays; if(old.yearDates.length) r.yearDates=old.yearDates;
       d.rec=r; renderSheet(); break; }
     case "wd":{ const i=+v, s=d.rec.weekdays; d.rec.weekdays = s.includes(i)? s.filter(x=>x!==i) : [...s,i]; renderSheet(); break; }
     case "md":{ const i=+v, s=d.rec.monthDays; d.rec.monthDays = s.includes(i)? s.filter(x=>x!==i) : [...s,i]; renderSheet(); break; }
     case "addyd": d.rec.yearDates.push({m:1,d:1}); renderSheet(); break;
+    case "addItem": d.items=[...(d.items||[]), {id:uid(), text:""}]; renderSheet(); setTimeout(()=>{ const a=$sheet.querySelectorAll("[data-a=itemText]"); a[a.length-1]?.focus(); },30); break;
+    case "rmItem": d.items.splice(+v,1); renderSheet(); break;
+    case "rotTog":{ const r=d.rotation||(d.rotation=[]), i=r.indexOf(v); if(i>=0) r.splice(i,1); else r.push(v); d.rotStart=null; renderSheet(); break; }
+    case "addPause":{ const f=fromIso($sheet.querySelector("#pz-from").value), to=fromIso($sheet.querySelector("#pz-to").value), err=$sheet.querySelector("#form-err");
+      if(f==null || to==null || to<f){ if(err) err.textContent="Bitte einen gültigen Zeitraum für die Pause wählen."; break; }
+      if(to<todayNum()){ if(err) err.textContent="Die Pause liegt schon in der Vergangenheit."; break; }
+      d.pauses=[...(d.pauses||[]), {from:f, to}]; renderSheet(); break; }
+    case "rmPause": d.pauses.splice(+v,1); renderSheet(); break;
     case "rmyd": d.rec.yearDates.splice(+v,1); renderSheet(); break;
     case "reorderToggle": ui.reorder=!ui.reorder; render(); break;
+    case "libF": ui.lf=v; render(); break;
+    case "libReset": ui.q=""; ui.lf="all"; ui.lp=""; render(); break;
+    case "statDays": ui.statDays=+v; render(); break;
     case "up": case "down":{ const x=(b.dataset.kind==="p"?D.projects:D.tasks).find(y=>y.id===v); if(x) reorder(x, a==="up"?-1:1); break; }
     case "settings": openSheet({kind:"settings"}); break;
     case "theme": try{ localStorage.setItem("tagwerk.theme",v); }catch(err){} applyTheme(); renderSheet(); break;
@@ -1503,6 +1757,11 @@ document.addEventListener("click",async e=>{
     /* --- Familie --- */
     case "member": openSheet({kind:"member", uid:v}); break;
     case "request": openSheet({kind:"request", uid:v}); break;
+    case "awaySet":{ const f=fromIso(val("aw-from")), to=fromIso(val("aw-to"));
+      if(f==null || to==null || to<f){ setErr("form-err","Bitte einen gültigen Zeitraum wählen."); break; }
+      if(to<todayNum()){ setErr("form-err","Der Zeitraum liegt schon in der Vergangenheit."); break; }
+      await B.updateMember(sheet.uid,{away:{from:f,to}}); render(); renderSheet(); toast("Urlaub eingetragen: "+fmtShort(f)+" bis "+fmtShort(to)+"."); break; }
+    case "awayRm": await B.updateMember(sheet.uid,{away:null}); render(); renderSheet(); toast("Urlaub entfernt."); break;
     case "renameSelf":{ const n=val("m-name"); if(n){ await B.updateMember(S.uid,{name:n}); closeSheet(); render(); toast("Name geändert."); } break; }
     case "saveRights":{
       const uid=sheet.uid, rr=sheet.rights;
@@ -1560,6 +1819,9 @@ document.addEventListener("click",async e=>{
 });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape" && sheetOpen) closeSheet(); });
 $scrim.addEventListener("click",e=>{ if(e.target===$scrim) closeSheet(); });
+// Suche & Personenfilter unter „Aufgaben & Projekte“ (ohne das Suchfeld neu zu zeichnen)
+$app.addEventListener("input",e=>{ if(e.target.id==="lib-q"){ ui.q=e.target.value; const r=document.getElementById("lib-res"); if(r) r.innerHTML=libResultsHtml(); } });
+$app.addEventListener("change",e=>{ if(e.target.id==="lib-p"){ ui.lp=e.target.value; render(); } });
 
 /* ---------- Toast ---------- */
 let toastTimer=null;
