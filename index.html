@@ -160,7 +160,7 @@ select.inp.inline{width:auto;display:inline-block}
 .chips.days{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .chips.days .chip{padding:8px 0;text-align:center}
 .chip{border:1px solid var(--line);background:var(--bg);border-radius:20px;padding:7px 13px;font-size:15px}
-.chip.on{background:var(--ink);border-color:var(--ink);color:var(--bg);font-weight:700}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
 .mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .mgrid .chip{padding:8px 0;border-radius:10px;text-align:center}
 .mgrid .chip.wide{grid-column:span 3}
@@ -183,7 +183,7 @@ select.inp.inline{width:auto;display:inline-block}
 .radio small{display:block;color:var(--muted);font-size:14px}
 .preview{margin-top:10px;padding:12px 14px;border-radius:var(--r-sm);background:var(--accent-soft);font-size:15px;line-height:1.45}
 .preview:empty{display:none}
-.swatches{display:flex;gap:10px}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
 .sw{width:34px;height:34px;border-radius:10px;border:3px solid transparent;padding:0}
 .sw.on{border-color:var(--ink)}
 
@@ -241,6 +241,7 @@ span.check{display:grid}
 [hidden]{display:none!important}
 .rt{padding:10px 0;border-top:1px solid var(--line)}
 .box>.rt:first-child,.box>.note+.rt{border-top:0}
+.is-off{opacity:.55}
 </style>
 </head>
 <body>
@@ -266,7 +267,8 @@ const DAY = 864e5;
 const WD = ["Mo","Di","Mi","Do","Fr","Sa","So"];
 const WDL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const MON = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
-const COLORS = ["#3B6FD8","#2E9C8A","#C2503D","#8A5CC9","#C98A12","#5E7A3A"];
+const COLORS = ["#3B6FD8","#2E9C8A","#C2503D","#8A5CC9","#C98A12","#5E7A3A","#E06B1F","#B3478A","#1F4E8C","#3F9C35",
+                "#17A2C6","#E0457B","#5B4FCF","#8B5A2B","#9CB82E","#7A2E3A","#5B6B7F","#D4B106","#E88D7A","#A08CD9"];
 
 function todayNum(){ const n=new Date(); return Math.round(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())/DAY); }
 function parts(dn){ const d=new Date(dn*DAY); return {y:d.getUTCFullYear(), m:d.getUTCMonth()+1, d:d.getUTCDate(), wd:(d.getUTCDay()+6)%7}; }
@@ -329,13 +331,42 @@ function neighbours(item){
 function meM(){ return S.members[S.uid]||null; }
 function R(){ const r=(meM()&&meM().rights)||{}, a=!!r.admin; return {admin:a, check:a||!!r.check, edit:a||!!r.edit, assign:a||!!r.assign}; }
 function rightsOf(m){ const r=(m&&m.rights)||{}, a=!!r.admin; return {admin:a, check:a||!!r.check, edit:a||!!r.edit, assign:a||!!r.assign}; }
-function canAct(t){ if(t.scope!=="fam") return true; const r=R(); return r.check && (t.assignee==null || t.assignee===S.uid || r.admin); }
+/* Mitglieder können für Familien-Aufgaben inaktiv sein (Feld active:false).
+   Aufgaben, die einer inaktiven Person zugewiesen sind, stehen solange allen offen. */
+function memberActive(uid){ const m=S.members[uid]; return !m || m.active!==false; }
+function effAssignee(t){ return (t.assignee && !memberActive(t.assignee)) ? null : (t.assignee??null); }
+function assigneeText(t){
+  if(!t.assignee) return "für alle";
+  if(memberActive(t.assignee)) return "für "+esc(nameOfNom(t.assignee));
+  return "für alle, solange "+(t.assignee===S.uid?"du inaktiv bist":esc(nameOfNom(t.assignee))+" inaktiv ist");
+}
+function canAct(t){ if(t.scope!=="fam") return true; const r=R(); return r.check && (effAssignee(t)==null || t.assignee===S.uid || r.admin); }
 function canEditItem(x){ return x.scope!=="fam" || R().edit; }
-function assignable(){ return Object.entries(S.members).filter(([,m])=>rightsOf(m).check).map(([uid,m])=>({uid,name:m.name,color:m.color})).sort((a,b)=>a.name.localeCompare(b.name)); }
+function assignable(keep){ return Object.entries(S.members).filter(([u,m])=>rightsOf(m).check && (m.active!==false || u===keep)).map(([uid,m])=>({uid,name:m.name+(m.active===false?" (inaktiv)":""),color:m.color})).sort((a,b)=>a.name.localeCompare(b.name)); }
 function nameOf(uid){ if(uid===S.uid) return "dir"; return (S.members[uid]&&S.members[uid].name)||"ehemaligem Mitglied"; }
 function nameOfNom(uid){ if(uid===S.uid) return "dich"; return (S.members[uid]&&S.members[uid].name)||"ehemaliges Mitglied"; }
 function rightsSummary(m){ const r=rightsOf(m); if(r.admin) return "Admin"; const a=[]; if(r.edit) a.push("plant"); if(r.assign) a.push("weist zu"); if(r.check) a.push("hakt ab"); return a.length? joinDe(a).replace(/^./,c=>c.toUpperCase()) : "Nur ansehen"; }
-const inToday = t => t.scope!=="fam" || (R().check && (t.assignee==null || t.assignee===S.uid));
+const inToday = t => t.scope!=="fam" || (R().check && memberActive(S.uid) && (effAssignee(t)==null || t.assignee===S.uid));
+
+/* ---------- Aufgaben & Projekte inaktiv schalten ----------
+   inactive:true = ruht gerade. pauses = Zeiträume {from,to} (to=null: läuft noch),
+   Termine in diesen Zeiträumen entfallen, auch nach dem Wieder-Einschalten. */
+function pausedOn(x,dn){ return !!x && (x.pauses||[]).some(p=>dn>=p.from && (p.to==null || dn<=p.to)); }
+function taskActive(t){ const p=t.projectId&&project(t.projectId); return !t.inactive && !(p&&p.inactive); }
+function taskPaused(t,dn){ return pausedOn(t,dn) || (!!t.projectId && pausedOn(project(t.projectId),dn)); }
+function setActive(x, active){
+  const T=todayNum(), ps=(x.pauses||[]).filter(p=>p.to==null || p.to>=T-120), open=ps.find(p=>p.to==null);
+  if(!active && !open) ps.push({from:T, to:null});
+  if(active && open){ open.to=T-1; if(open.to<open.from) ps.splice(ps.indexOf(open),1); }
+  if(active) delete x.inactive; else x.inactive=true;
+  if(ps.length) x.pauses=ps; else delete x.pauses;
+}
+function activeBox(d, what){
+  const p=d.projectId&&project(d.projectId);
+  return `<div class="box"><div class="switch-row"><div><b>Aktiv</b><small>Ausgeschaltet ${what==="p"?"ruht das Projekt mit allen Aufgaben":"ruht die Aufgabe"}, zum Beispiel im Urlaub. Termine in dieser Zeit entfallen, nichts sammelt sich an.</small></div>
+     <label class="switch"><input type="checkbox" data-bind="active" data-type="bool" data-rerender ${d.active?"checked":""} aria-label="Aktiv"><i></i></label></div>
+     ${what==="t"&&p&&p.inactive?`<p class="note">Das Projekt „${esc(p.name)}“ ist gerade inaktiv, daher ruht diese Aufgabe ohnehin.</p>`:""}</div>`;
+}
 const isFam = t => t.scope==="fam";
 
 /* ---------- Daten zusammenführen & zurückschreiben ---------- */
@@ -666,7 +697,8 @@ const ICON={
 };
 const VIEWNAME={today:"Heute", days:"Tagesansicht", family:"Familie", lib:"Aufgaben & Projekte"};
 
-function render(){
+function render(){ renderMain(); syncHistory(); }
+function renderMain(){
   const inApp=S.phase==="app";
   $foot.hidden=!inApp;
   if(S.phase==="loading"){ $app.innerHTML=`<div class="empty" style="margin-top:40vh;transform:translateY(-50%)"><p>Lädt …</p></div>`; return; }
@@ -735,8 +767,8 @@ function errorHtml(){
 function projProgress(pid, pOrig){
   let done=0,total=0;
   for(const t of D.tasks.filter(x=>x.projectId===pid)){
-    const key=t.id+"|"+(pOrig+(t.offset|0)), L=D.log[key];
-    if(L&&L.s) continue; total++; if(L&&L.d!=null) done++;
+    const dn=pOrig+(t.offset|0), key=t.id+"|"+dn, L=D.log[key];
+    if(L&&L.s) continue; if(taskPaused(t,dn) && !(L&&L.d!=null)) continue; total++; if(L&&L.d!=null) done++;
   }
   return {done,total};
 }
@@ -746,7 +778,7 @@ function rowHtml(o, meta, opts={}){
   if(o.moved && o.eff!==o.orig && !meta) m.push("verschoben von "+fmtShort(o.orig));
   if(t.scope==="fam"){
     if(o.done){ const L=D.log[o.key]||{}; if(L.by) m.push("erledigt von "+(L.by===S.uid?"dir":esc(nameOfNom(L.by)))); }
-    else if(opts.showAssignee) m.push(t.assignee? "für "+esc(nameOfNom(t.assignee)) : "für alle");
+    else if(opts.showAssignee) m.push(assigneeText(t));
     else m.push(t.assignee===S.uid? "Familie, für dich" : "Familie");
   }
   if(o.done && o.doneOn!=null && o.doneOn!==o.eff) m.push(fmtRel(o.doneOn));
@@ -761,19 +793,25 @@ function rowHtml(o, meta, opts={}){
 }
 function overMeta(o){ return `<span class="warn">fällig seit ${fmtRel(o.eff)}</span>`; }
 function blocksHtml(items, opts){
+  // Projekte mit gleichem Namen (persönlich oder Familie) bilden einen gemeinsamen Block
   const blocks=new Map();
   for(const it of items){
     const t=it.o.t, pr=t.projectId && project(t.projectId);
-    if(pr){ const P=it.o.orig-(t.offset|0), k="p|"+pr.id+"|"+P; if(!blocks.has(k)) blocks.set(k,{ref:pr,P,items:[]}); blocks.get(k).items.push(it); }
+    if(pr){
+      const P=it.o.orig-(t.offset|0), k="p|"+pr.name.trim().toLocaleLowerCase("de");
+      if(!blocks.has(k)) blocks.set(k,{refs:[],inst:new Map(),items:[]});
+      const bl=blocks.get(k); if(!bl.refs.includes(pr)) bl.refs.push(pr); bl.inst.set(pr.id+"|"+P,{id:pr.id,P}); bl.items.push(it);
+    }
     else blocks.set("t|"+it.o.key,{ref:t,P:it.o.eff,items:[it]});
   }
+  for(const bl of blocks.values()) if(bl.refs){ bl.refs.sort(byPrio); bl.ref=bl.refs[0]; bl.P=Math.min(...[...bl.inst.values()].map(x=>x.P)); }
   // persönliche und Familien-Einträge gleicher Priorität: nach Reihenfolge, dann Datum
   const arr=[...blocks.values()].sort((a,b)=>(a.ref.prio-b.ref.prio)||(a.ref.scope===b.ref.scope?a.ref.order-b.ref.order:0)||(a.P-b.P));
   return arr.map(b=>{
     if(b.ref.name===undefined){ const it=b.items[0]; return rowHtml(it.o, it.over?overMeta(it.o):"", opts); }
-    const pg=projProgress(b.ref.id,b.P);
+    const pg={done:0,total:0}; for(const x of b.inst.values()){ const q=projProgress(x.id,x.P); pg.done+=q.done; pg.total+=q.total; }
     const rows=b.items.sort((x,y)=>byPrio(x.o.t,y.o.t)||(x.o.eff-y.o.eff)).map(it=>rowHtml(it.o, it.over?overMeta(it.o):"", opts)).join("");
-    return `<div class="pblock" style="--pc:${b.ref.color}"><div class="phead"><span class="pdot"></span><b>${esc(b.ref.name)}</b>${b.ref.scope==="fam"&&!(opts&&opts.showAssignee)?'<span class="tag">Familie</span>':""}<span class="pcount">${pg.done} von ${pg.total}</span></div>${rows}</div>`;
+    return `<div class="pblock" style="--pc:${b.ref.color}"><div class="phead"><span class="pdot"></span><b>${esc(b.ref.name)}</b>${b.refs.every(r=>r.scope==="fam")&&!(opts&&opts.showAssignee)?'<span class="tag">Familie</span>':""}<span class="pcount">${pg.done} von ${pg.total}</span></div>${rows}</div>`;
   }).join("");
 }
 function dayListHtml(day, filter, opts={}){
@@ -809,7 +847,8 @@ function renderToday(){
   let h=`<header class="top"><div><h1 class="top-title">${WDL[p.wd]}, ${p.d}. ${MON[p.m-1]}</h1><div class="top-sub">${sub}</div></div>${total?ringHtml(doneN,total):""}</header>`;
   if(S.requests.length) h+=`<button class="notice-btn" data-a="go" data-v="family">${S.requests.length===1?"1 Person möchte":S.requests.length+" Personen möchten"} der Familie beitreten</button>`;
   h+=dayListHtml(T, inToday);
-  if(!R().check && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Familien-Aufgaben siehst du unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
+  if(R().check && !memberActive(S.uid) && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Du bist für Familien-Aufgaben gerade inaktiv. Sie stehen unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
+  else if(!R().check && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Familien-Aufgaben siehst du unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
   return h;
 }
 function renderDays(){
@@ -832,8 +871,9 @@ function renderFamily(){
   if(r.admin && S.requests.length){
     h+=`<section class="sec"><div class="sec-head"><h2>Möchten beitreten</h2><span class="count">${S.requests.length}</span></div><div class="list warn">${S.requests.map(q=>`<button class="lib-row" data-a="request" data-v="${q.uid}"><div><div class="row-title">${esc(q.name)}</div><div class="row-meta">Anfrage vom ${(d=>fmtShort(dnOf(d.getFullYear(),d.getMonth()+1,d.getDate())))(new Date(q.at))}</div></div><span class="chev">Prüfen ›</span></button>`).join("")}</div></section>`;
   }
+  if(!memberActive(S.uid)) h+=`<button class="notice-btn" data-a="member" data-v="${S.uid}">Du bist für Familien-Aufgaben inaktiv. Tippen zum Ändern.</button>`;
   h+=`<section class="sec"><div class="sec-head"><h2>Heute in der Familie</h2></div>${dayListHtml(T, isFam, {showAssignee:true, tight:true})}</section>`;
-  h+=`<section class="sec"><div class="sec-head"><h2>Mitglieder</h2></div><div class="list">${mem.map(([uid,m])=>`<button class="lib-row" data-a="member" data-v="${uid}"><div class="mem"><span class="avatar" style="background:${m.color||"#888"}">${esc((m.name||"?").slice(0,1).toUpperCase())}</span><div><div class="row-title">${esc(m.name)}${uid===S.uid?' <span class="tag">du</span>':""}</div><div class="row-meta">${rightsSummary(m)}</div></div></div><span class="chev">›</span></button>`).join("")}</div></section>`;
+  h+=`<section class="sec"><div class="sec-head"><h2>Mitglieder</h2></div><div class="list">${mem.map(([uid,m])=>`<button class="lib-row" data-a="member" data-v="${uid}"><div class="mem"><span class="avatar" style="background:${m.color||"#888"}">${esc((m.name||"?").slice(0,1).toUpperCase())}</span><div><div class="row-title">${esc(m.name)}${uid===S.uid?' <span class="tag">du</span>':""}${m.active===false?' <span class="tag">inaktiv</span>':""}</div><div class="row-meta">${rightsSummary(m)}</div></div></div><span class="chev">›</span></button>`).join("")}</div></section>`;
   if(r.admin){
     const code=(S.family&&S.family.code)||"";
     h+=`<section class="sec"><div class="sec-head"><h2>Einladen</h2></div><div class="box"><span class="lbl">Familien-Code</span><div class="code-big">${esc(code.slice(0,3)+" "+code.slice(3))}</div>
@@ -851,11 +891,12 @@ function arrowsHtml(kind,x){
 function libTaskRow(t){
   const ed=canEditItem(t);
   let meta=(t.projectId ? offsetText(t.offset) : recText(t.rec)) + (t.movable?", verschiebbar":", fester Termin");
-  if(t.scope==="fam") meta+=", "+(t.assignee? "für "+esc(nameOfNom(t.assignee)) : "für alle");
-  const inner=`<div><div class="row-title">${esc(t.title)}${t.projectId?prioTag(t):""}</div><div class="row-meta">${meta}</div></div>`;
-  if(ui.reorder && ed) return `<div class="lib-row${t.prio===1?" hi":""}">${inner}${arrowsHtml("t",t)}</div>`;
-  if(!ed) return `<button class="lib-row${t.prio===1?" hi":""}" data-a="viewTask" data-v="${t.id}">${inner}<span class="chev">${R().assign?"Zuweisen ›":""}</span></button>`;
-  return `<button class="lib-row${t.prio===1?" hi":""}" data-a="editTask" data-v="${t.id}">${inner}<span class="chev">›</span></button>`;
+  if(t.scope==="fam") meta+=", "+assigneeText(t);
+  const off=t.inactive?" is-off":"";
+  const inner=`<div><div class="row-title">${esc(t.title)}${t.projectId?prioTag(t):""}${t.inactive?'<span class="tag">inaktiv</span>':""}</div><div class="row-meta">${meta}</div></div>`;
+  if(ui.reorder && ed) return `<div class="lib-row${t.prio===1?" hi":""}${off}">${inner}${arrowsHtml("t",t)}</div>`;
+  if(!ed) return `<button class="lib-row${t.prio===1?" hi":""}${off}" data-a="viewTask" data-v="${t.id}">${inner}<span class="chev">${R().assign?"Zuweisen ›":""}</span></button>`;
+  return `<button class="lib-row${t.prio===1?" hi":""}${off}" data-a="editTask" data-v="${t.id}">${inner}<span class="chev">›</span></button>`;
 }
 function libScopeHtml(scope){
   const blocks=[...D.projects, ...D.tasks.filter(t=>!t.projectId)].filter(x=>x.scope===scope).sort(byPrio);
@@ -868,8 +909,8 @@ function libScopeHtml(scope){
     for(const x of group){
       if(x.name!==undefined){
         const ts=D.tasks.filter(t=>t.projectId===x.id).sort(byPrio);
-        const head=`<div><div class="row-title" style="font-weight:700"><span class="pdot" style="display:inline-block;margin-right:8px;vertical-align:0"></span>${esc(x.name)}</div><div class="row-meta">Projekt, ${recText(x.rec)}</div></div>`;
-        h+=`<div class="pblock" style="--pc:${x.color}">`;
+        const head=`<div><div class="row-title" style="font-weight:700"><span class="pdot" style="display:inline-block;margin-right:8px;vertical-align:0"></span>${esc(x.name)}${x.inactive?'<span class="tag">inaktiv</span>':""}</div><div class="row-meta">Projekt, ${recText(x.rec)}</div></div>`;
+        h+=`<div class="pblock${x.inactive?" is-off":""}" style="--pc:${x.color}">`;
         h+= ui.reorder&&canEd ? `<div class="lib-row phead-btn">${head}${arrowsHtml("p",x)}</div>` : canEd ? `<button class="lib-row phead-btn" data-a="editProject" data-v="${x.id}">${head}<span class="chev">›</span></button>` : `<div class="lib-row phead-btn">${head}</div>`;
         h+= ts.map(libTaskRow).join("");
         if(!ui.reorder && canEd) h+=`<button class="add-in" data-a="newTask" data-v="${x.id}" data-scope="${scope}">+ Aufgabe in diesem Projekt</button>`;
@@ -968,9 +1009,9 @@ function occurrences(t, from, to){
 function dayModel(day, filter){
   const T=todayNum(), due=[], overdue=[], missed=[];
   for(const t of (filter? D.tasks.filter(filter) : D.tasks)){
-    const occ=occurrences(t, Math.min(day,T)-75, day+5).filter(o=>!o.replaced && !o.skip);
+    const occ=occurrences(t, Math.min(day,T)-75, day+5).filter(o=>!o.replaced && !o.skip && (o.done || !taskPaused(t,o.eff)));
     let hideAfter=null;
-    if(day===T){
+    if(day===T && taskActive(t)){
       const pending=occ.filter(o=>!o.done && o.eff<T && o.eff>=T-60);
       if(pending.length){
         if(t.movable){
@@ -995,9 +1036,30 @@ function dayModel(day, filter){
    ===================================================================== */
 const $scrim=document.getElementById("scrim"), $sheet=document.getElementById("sheet");
 let sheetOpen=false, sheet=null;
-function openSheet(s){ hideToast(); sheet=s; sheetOpen=true; renderSheet(); $scrim.classList.add("open"); $scrim.setAttribute("aria-hidden","false"); $sheet.scrollTop=0;
+function openSheet(s){ hideToast(); sheet=s; sheetOpen=true; renderSheet(); $scrim.classList.add("open"); $scrim.setAttribute("aria-hidden","false"); $sheet.scrollTop=0; syncHistory();
   setTimeout(()=>{ const f=$sheet.querySelector("[data-autofocus]"); if(f) f.focus(); else $sheet.querySelector("button")?.focus(); },60); }
-function closeSheet(){ sheetOpen=false; sheet=null; $scrim.classList.remove("open"); $scrim.setAttribute("aria-hidden","true"); }
+function closeSheet(){ sheetOpen=false; sheet=null; $scrim.classList.remove("open"); $scrim.setAttribute("aria-hidden","true"); syncHistory(); }
+
+/* ---------- Zurück-Taste (Android) ----------
+   Solange ein Fenster offen ist oder ein anderer Reiter als „Heute“ gezeigt wird,
+   liegt ein zusätzlicher Verlaufseintrag oben. „Zurück“ schließt dann zuerst das Fenster,
+   danach geht es zu „Heute“. Auf „Heute“ gibt es keinen Eintrag mehr: „Zurück“ schließt die App. */
+const NAV={guard:false, skip:0};
+function needGuard(){ return sheetOpen || (S.phase==="app" && ui.view!=="today") || (S.phase==="welcome" && !!ui.welcome); }
+function syncHistory(){
+  if(NAV.skip) return; // ein eigenes history.back() ist noch unterwegs
+  const need=needGuard();
+  if(need && !NAV.guard){ history.pushState({tagwerk:1},""); NAV.guard=true; }
+  else if(!need && NAV.guard){ NAV.guard=false; NAV.skip++; history.back(); }
+}
+window.addEventListener("popstate",()=>{
+  if(NAV.skip){ NAV.skip--; syncHistory(); return; }
+  NAV.guard=false;
+  if(sheetOpen) closeSheet();
+  else if(S.phase==="app" && ui.view!=="today"){ ui.view="today"; ui.reorder=false; ui.day=todayNum(); render(); window.scrollTo(0,0); }
+  else if(S.phase==="welcome" && ui.welcome){ ui.welcome=null; render(); }
+  syncHistory();
+});
 function renderSheet(){
   if(!sheet) return;
   const st=$sheet.scrollTop, k=sheet.kind;
@@ -1074,7 +1136,7 @@ function nextN(match, from, n){ const out=[]; for(let dn=from; dn<from+800 && ou
 function newTaskDraft(projectId, scope){
   const T=todayNum(), p=projectId&&project(projectId);
   const sc = p ? p.scope : (scope || "me");
-  return {id:null, title:"", scope:(sc==="fam"&&!R().edit)?"me":sc, projectId:projectId||null, offset:0, rec:newRec("weekly",T), movable:true, follow:"replace", replaceDays:2, prio:2, assignee:null};
+  return {id:null, title:"", scope:(sc==="fam"&&!R().edit)?"me":sc, projectId:projectId||null, offset:0, rec:newRec("weekly",T), movable:true, follow:"replace", replaceDays:2, prio:2, assignee:null, active:true};
 }
 function taskForm(){
   const d=sheet.draft, isNew=!d.id, fam=d.scope==="fam";
@@ -1083,7 +1145,7 @@ function taskForm(){
   h+=scopeSeg(d);
   if(fam){
     if(R().assign){
-      h+=`<label class="field"><span>Zuständig</span><select class="inp" data-bind="assignee" data-type="str"><option value="">Alle, wer zuerst kommt</option>${assignable().map(m=>`<option value="${m.uid}"${d.assignee===m.uid?" selected":""}>${esc(m.uid===S.uid?m.name+" (du)":m.name)}</option>`).join("")}</select></label>`;
+      h+=`<label class="field"><span>Zuständig</span><select class="inp" data-bind="assignee" data-type="str"><option value="">Alle, wer zuerst kommt</option>${assignable(d.assignee).map(m=>`<option value="${m.uid}"${d.assignee===m.uid?" selected":""}>${esc(m.uid===S.uid?m.name+" (du)":m.name)}</option>`).join("")}</select></label>`;
     } else if(d.assignee) h+=`<p class="note">Zuständig: ${esc(nameOfNom(d.assignee))}</p>`;
   }
   h+=prioSeg(d.prio);
@@ -1106,7 +1168,7 @@ function taskForm(){
       <label class="radio"><input type="radio" name="follow" value="shift" data-bind="follow" data-type="str" data-rerender ${d.follow==="shift"?"checked":""}><div><b>Die ganze Serie rückt mit</b><small>Alle folgenden Termine verschieben sich um gleich viele Tage.</small></div></label>
       <div class="preview" id="preview">${followPreview(d)}</div></div>`;
   }
-  h+=`</div><p class="note err" id="form-err"></p>`;
+  h+=`</div>`+activeBox(d,"t")+`<p class="note err" id="form-err"></p>`;
   h+=`<div class="sheet-actions">${isNew?"":`<button class="btn danger" data-a="delTask">Löschen</button>`}<span class="grow"></span><button class="btn primary" data-a="saveTask">${isNew?"Aufgabe anlegen":"Änderungen speichern"}</button></div>`;
   return h;
 }
@@ -1141,9 +1203,11 @@ function saveTask(){
       Object.assign(t,{prio:d.prio, title:d.title, projectId:d.projectId, offset:d.offset|0, rec:d.projectId?null:d.rec, movable:d.movable, follow:d.follow, replaceDays:Math.max(0,d.replaceDays|0)});
       if(t.scope==="fam" && R().assign) t.assignee=assignee;
       if(ruleChanged || d.follow!=="shift") t.shifts=[];
+      if(!!t.inactive===!!d.active) setActive(t, !!d.active);
     } else {
       const t={id:uid(), scope:d.scope, prio:d.prio, order:nextOrder({projectId:d.projectId, scope:d.scope}), title:d.title, projectId:d.projectId, offset:d.offset|0, rec:d.projectId?null:d.rec, movable:d.movable, follow:d.follow, replaceDays:Math.max(0,d.replaceDays|0), shifts:[], created:(!d.projectId && d.rec.type==="once")? Math.min(T,d.rec.start) : T};
       if(d.scope==="fam"){ t.assignee=R().assign? assignee : null; t.createdBy=S.uid; }
+      if(!d.active) setActive(t,false);
       D.tasks.push(t);
     }
   });
@@ -1162,7 +1226,7 @@ function viewTaskSheet(){
 function assignHtml(t){
   return `<div class="field"><span>Zuweisen an</span><div class="chips">
     <button class="chip${t.assignee==null?" on":""}" data-a="assign" data-k="${t.id}" data-v="">Alle</button>
-    ${assignable().map(m=>`<button class="chip${t.assignee===m.uid?" on":""}" data-a="assign" data-k="${t.id}" data-v="${m.uid}">${esc(m.uid===S.uid?"Mir":m.name)}</button>`).join("")}
+    ${assignable(t.assignee).map(m=>`<button class="chip${t.assignee===m.uid?" on":""}" data-a="assign" data-k="${t.id}" data-v="${m.uid}">${esc(m.uid===S.uid?"Mir":m.name)}</button>`).join("")}
   </div><p class="note">Zuweisen kannst du nur an Personen, die abhaken dürfen.</p></div>`;
 }
 
@@ -1176,6 +1240,7 @@ function projectForm(){
   h+=prioSeg(d.prio);
   h+=`<div class="field"><span>Farbe</span><div class="swatches">${COLORS.map(c=>`<button class="sw${d.color===c?" on":""}" style="background:${c}" data-a="color" data-v="${c}" aria-label="Farbe ${c}" aria-pressed="${d.color===c}"></button>`).join("")}</div></div>`;
   h+=recEditor(d.rec);
+  h+=activeBox(d,"p");
   if(!isNew){
     const ts=D.tasks.filter(t=>t.projectId===d.id).sort(byPrio);
     h+=`<div class="field"><span>Aufgaben (${ts.length})</span>${ts.length?`<div class="list">${ts.map(t=>`<button class="lib-row" data-a="editTask" data-v="${t.id}"><div><div class="row-title">${esc(t.title)}</div><div class="row-meta">${offsetText(t.offset)}</div></div><span class="chev">›</span></button>`).join("")}</div>`:""}</div>`;
@@ -1192,8 +1257,8 @@ function saveProject(){
   if(d.scope==="fam" && !R().edit){ err.textContent="Du darfst keine Familien-Projekte anlegen oder ändern."; return; }
   let id=d.id;
   change(()=>{
-    if(id){ const p=project(id); const ch=JSON.stringify(p.rec)!==JSON.stringify(d.rec); Object.assign(p,{name:d.name,color:d.color,rec:d.rec,prio:d.prio}); if(ch) D.tasks.filter(t=>t.projectId===id).forEach(t=>t.shifts=[]); }
-    else { id=uid(); D.projects.push({id, scope:d.scope, name:d.name, color:d.color, rec:d.rec, created:todayNum(), prio:d.prio, order:nextOrder({scope:d.scope})}); }
+    if(id){ const p=project(id); const ch=JSON.stringify(p.rec)!==JSON.stringify(d.rec); Object.assign(p,{name:d.name,color:d.color,rec:d.rec,prio:d.prio}); if(ch) D.tasks.filter(t=>t.projectId===id).forEach(t=>t.shifts=[]); if(!!p.inactive===!!d.active) setActive(p, !!d.active); }
+    else { id=uid(); const p={id, scope:d.scope, name:d.name, color:d.color, rec:d.rec, created:todayNum(), prio:d.prio, order:nextOrder({scope:d.scope})}; if(!d.active) setActive(p,false); D.projects.push(p); }
   });
   render();
   if(!d.id){ openSheet({kind:"task", draft:newTaskDraft(id)}); toast("Projekt angelegt. Jetzt die erste Aufgabe dazu."); }
@@ -1232,6 +1297,11 @@ function memberSheet(){
   const uid=sheet.uid, m=S.members[uid]; if(!m) return head("Mitglied")+"<p>Nicht mehr in der Familie.</p>";
   const r=R(), self=uid===S.uid;
   let h=head(esc(m.name)+(self?" (du)":""));
+  if(r.admin || self){
+    const on=m.active!==false;
+    h+=`<div class="box"><div class="switch-row"><div><b>Aktiv bei Familien-Aufgaben</b><small>${on?"":"Gerade inaktiv. "}Inaktiv bekommt ${self?"du":esc(m.name)} keine Familien-Aufgaben unter „Heute“ und kann nicht zugewiesen werden. Bereits zugewiesene Aufgaben stehen solange allen offen.</small></div>
+      <label class="switch"><input type="checkbox" data-a="mactive" ${on?"checked":""} aria-label="Aktiv bei Familien-Aufgaben"><i></i></label></div></div>`;
+  }
   if(self) h+=`<label class="field"><span>Dein Name</span><div class="inline-row" style="margin:0"><input class="inp" id="m-name" value="${esc(m.name)}" maxlength="40" style="flex:1"><button class="btn" data-a="renameSelf">Speichern</button></div></label>`;
   if(r.admin){
     const rr=sheet.rights||(sheet.rights=clone(m.rights||{}));
@@ -1321,6 +1391,11 @@ function readVal(el){
   if(el.type==="radio") return el.value;
   return el.value===""&&el.tagName==="SELECT" ? null : el.value;
 }
+async function setMemberActive(uid, on){
+  const m=S.members[uid]; if(!m) return;
+  try{ await B.updateMember(uid,{active:on}); render(); renderSheet(); toast((uid===S.uid?"Du bist":m.name+" ist")+" jetzt "+(on?"aktiv":"inaktiv")+" bei Familien-Aufgaben."); }
+  catch(err){ console.warn(err); renderSheet(); toast("Das wurde nicht gespeichert: fehlende Berechtigung oder keine Verbindung."); }
+}
 function updatePreview(){ const p=$sheet.querySelector("#preview"); if(p && sheet && sheet.kind==="task") p.innerHTML=followPreview(sheet.draft); }
 const val=id=>{ const e=document.getElementById(id); return e? e.value.trim() : ""; };
 const setErr=(id,msg)=>{ const e=document.getElementById(id); if(e) e.textContent=msg; };
@@ -1339,6 +1414,7 @@ $sheet.addEventListener("input",e=>{
 $sheet.addEventListener("change",e=>{
   const el=e.target; if(!sheet) return;
   if((el.dataset.a==="mright"||el.dataset.a==="qright") && sheet.rights){ sheet.rights[el.dataset.v]=el.checked; if(el.dataset.v==="admin"&&el.checked) Object.assign(sheet.rights,{check:true,edit:true,assign:true}); renderSheet(); return; }
+  if(el.dataset.a==="mactive"){ setMemberActive(sheet.uid, el.checked); return; }
   if(!sheet.draft) return;
   if(el.dataset.bind){
     let v=readVal(el);
@@ -1371,9 +1447,9 @@ document.addEventListener("click",async e=>{
     case "newTask":{ const sc=b.dataset.scope || (ui.view==="family"?"fam":"me"); openSheet({kind:"task", draft:newTaskDraft(v||null, sc)}); break; }
     case "viewTask": openSheet({kind:"viewTask", id:v}); break;
     case "editTask":{ const t=D.tasks.find(x=>x.id===v); if(!t) break; if(!canEditItem(t)){ openSheet({kind:"viewTask", id:v}); break; }
-      openSheet({kind:"task", draft:Object.assign(newTaskDraft(), clone(t), {rec: clone(t.rec||newRec("weekly",todayNum())), assignee:t.assignee??null})}); break; }
-    case "newProject":{ let sc=b.dataset.scope || (ui.view==="family"?"fam":"me"); if(sc==="fam"&&!R().edit) sc="me"; openSheet({kind:"project", draft:{id:null, scope:sc, name:"", prio:2, color:COLORS[D.projects.length%COLORS.length], rec:newRec("once",todayNum()+7)}}); break; }
-    case "editProject":{ const p=project(v); if(p && canEditItem(p)) openSheet({kind:"project", draft:clone(p)}); break; }
+      openSheet({kind:"task", draft:Object.assign(newTaskDraft(), clone(t), {rec: clone(t.rec||newRec("weekly",todayNum())), assignee:t.assignee??null, active:!t.inactive})}); break; }
+    case "newProject":{ let sc=b.dataset.scope || (ui.view==="family"?"fam":"me"); if(sc==="fam"&&!R().edit) sc="me"; openSheet({kind:"project", draft:{id:null, scope:sc, name:"", prio:2, color:COLORS[D.projects.length%COLORS.length], rec:newRec("once",todayNum()+7), active:true}}); break; }
+    case "editProject":{ const p=project(v); if(p && canEditItem(p)) openSheet({kind:"project", draft:Object.assign(clone(p),{active:!p.inactive})}); break; }
     case "saveTask": saveTask(); break;
     case "saveProject": saveProject(); break;
     case "scope": d.scope=v; d.projectId=null; d.assignee=null; renderSheet(); break;
