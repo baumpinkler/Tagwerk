@@ -369,17 +369,20 @@ function ordInfo(x){ // für Projekte und eigenständige Aufgaben
 const taskInfo = t => ({key:"t:"+t.id, prio:t.prio, order:t.order|0});
 function sortBlocks(arr){ return arr.map(x=>[ordInfo(x),x]).sort((a,b)=>ordCmp(a[0],b[0])).map(e=>e[1]); }
 function sortTasks(arr){ return arr.map(t=>[taskInfo(t),t]).sort((a,b)=>ordCmp(a[0],b[0])).map(e=>e[1]); }
-function ordBlocks(){ // alle Blöcke über persönlich und Familie hinweg
+// Familien-Einträge in „Aufgaben & Projekte“ sieht nur, wer planen oder zuweisen darf (Admins immer)
+function libSeesFam(){ const r=R(); return r.edit || r.assign; }
+const libVisible = x => x.scope!=="fam" || libSeesFam();
+function ordBlocks(){ // alle sichtbaren Blöcke über persönlich und Familie hinweg
   const groups=new Map(), out=[];
-  for(const p of D.projects){
+  for(const p of D.projects.filter(libVisible)){
     const k="p:"+normName(p.name);
     if(!groups.has(k)){ const g={key:k, projects:[], prio:9, order:1e9}; groups.set(k,g); out.push(g); }
     const g=groups.get(k); g.projects.push(p); g.prio=Math.min(g.prio,p.prio); g.order=Math.min(g.order,p.order|0);
   }
-  for(const t of D.tasks) if(!t.projectId || !project(t.projectId)) out.push({key:"t:"+t.id, task:t, prio:t.prio, order:t.order|0});
+  for(const t of D.tasks.filter(libVisible)) if(!t.projectId || !project(t.projectId)) out.push({key:"t:"+t.id, task:t, prio:t.prio, order:t.order|0});
   return out.sort(ordCmp);
 }
-function groupTasks(g){ const ids=new Set(g.projects.map(p=>p.id)); return D.tasks.filter(t=>ids.has(t.projectId)).map(taskInfo).sort(ordCmp); }
+function groupTasks(g){ const ids=new Set(g.projects.map(p=>p.id)); return D.tasks.filter(t=>ids.has(t.projectId) && libVisible(t)).map(taskInfo).sort(ordCmp); }
 function moveOrd(key, grp, dir){
   const blocks=ordBlocks(), g=grp? blocks.find(x=>x.key===grp) : null;
   const list=grp? (g? groupTasks(g) : []) : blocks;
@@ -1112,20 +1115,21 @@ function libTaskRow(t){
   return `<button class="lib-row${t.prio===1?" hi":""}${off}" data-a="editTask" data-v="${t.id}">${inner}<span class="chev">›</span></button>`;
 }
 /* ---------- Suche & Filter ---------- */
-function libFiltering(){ return !ui.reorder && (!!ui.q.trim() || ui.lf!=="all" || !!ui.lp); }
+const curLp = () => libSeesFam()? ui.lp : "";
+function libFiltering(){ return !ui.reorder && (!!ui.q.trim() || ui.lf!=="all" || !!curLp()); }
 function textHit(x,q){ return [x.title||x.name||"", x.note||"", ...(x.items||[]).map(i=>i.text)].join(" ").toLocaleLowerCase("de").includes(q); }
 function lfHit(x,p){ if(ui.lf==="on") return !isOffNow(x) && !isOffNow(p); if(ui.lf==="off") return isOffNow(x)||isOffNow(p)||hasPlannedPause(x)||hasPlannedPause(p); return true; }
 function taskHit(t){
   const q=ui.q.trim().toLocaleLowerCase("de"), p=t.projectId?project(t.projectId):null;
   if(q && !textHit(t,q) && !(p&&textHit(p,q))) return false;
   if(!lfHit(t,p)) return false;
-  if(ui.lp){ if(t.scope==="me") return ui.lp===S.uid; if(!(t.assignee===ui.lp || (t.rotation||[]).includes(ui.lp))) return false; }
+  const lp=curLp(); if(lp){ if(t.scope==="me") return lp===S.uid; if(!(t.assignee===lp || (t.rotation||[]).includes(lp))) return false; }
   return true;
 }
 function projHit(x){
   const q=ui.q.trim().toLocaleLowerCase("de");
   if(q && !textHit(x,q)) return false;
-  if(ui.lp && !(x.scope==="me" && ui.lp===S.uid)) return false;
+  const lp=curLp(); if(lp && !(x.scope==="me" && lp===S.uid)) return false;
   return lfHit(x,null);
 }
 function libScopeHtml(scope){
@@ -1164,7 +1168,7 @@ function renderLib(){
     const mem=Object.entries(S.members).sort((a,b)=>a[1].name.localeCompare(b[1].name));
     h+=`<input class="inp" type="search" id="lib-q" placeholder="Suchen in Namen, Notizen, Checklisten" value="${esc(ui.q)}" autocomplete="off" aria-label="Aufgaben und Projekte durchsuchen" style="margin-top:14px">
       <div class="filters">${[["all","Alle"],["on","Aktiv"],["off","Inaktiv & Pausen"]].map(([v,l])=>`<button class="chip${ui.lf===v?" on":""}" data-a="libF" data-v="${v}" aria-pressed="${ui.lf===v}">${l}</button>`).join("")}
-      ${mem.length>1?`<select class="inp inline" id="lib-p" aria-label="Nach Person filtern"><option value="">Alle Personen</option>${mem.map(([u,m])=>`<option value="${u}"${ui.lp===u?" selected":""}>${esc(u===S.uid?m.name+" (du)":m.name)}</option>`).join("")}</select>`:""}
+      ${mem.length>1&&libSeesFam()?`<select class="inp inline" id="lib-p" aria-label="Nach Person filtern"><option value="">Alle Personen</option>${mem.map(([u,m])=>`<option value="${u}"${ui.lp===u?" selected":""}>${esc(u===S.uid?m.name+" (du)":m.name)}</option>`).join("")}</select>`:""}
       ${libFiltering()?`<button class="link-btn" data-a="libReset">Zurücksetzen</button>`:""}</div>`;
   }
   h+=`<div id="lib-res">${libResultsHtml()}</div>`;
@@ -1172,9 +1176,10 @@ function renderLib(){
 }
 function libResultsHtml(){
   if(ui.reorder) return `<section class="sec">${reorderHtml()}</section>`;
-  const r=R(), showMe=!ui.lp || ui.lp===S.uid;
+  const r=R(), fam=libSeesFam(), showMe=!fam || !ui.lp || ui.lp===S.uid;
   let h="";
   if(showMe) h+=`<section class="sec"><div class="sec-head"><h2>${ICON.lock.replace("<svg",'<svg class="h-ic"')}Persönlich</h2><span class="count">nur für dich</span></div>${libScopeHtml("me")}</section>`;
+  if(!fam) return h+`<p class="note">Familien-Aufgaben erscheinen für dich unter „Heute“ und in der Tagesansicht.</p>`;
   h+=`<section class="sec"><div class="sec-head"><h2>${ICON.people.replace("<svg",'<svg class="h-ic"')}Familie</h2><span class="count">${r.edit?"du darfst planen":"nur ansehen"}</span></div>${libScopeHtml("fam")}</section>`;
   return h;
 }

@@ -3,7 +3,7 @@
 Diese Datei fasst den Stand der App zusammen, damit eine neue Sitzung ohne Vorwissen weiterarbeiten kann.
 **Bitte zusammen mit der aktuellen `index.html` und `firestore.rules` hochladen.** `config.js` wird nicht benötigt.
 
-Stand: 16. Oktober 2026
+Stand: 16. Oktober 2026 (Runde 4)
 
 ---
 
@@ -179,6 +179,10 @@ Felder: `id, scope, name, color, rec, created, prio, order, inactive, pauses`.
 5. Schieberegler: Ein = Farbe des „Abhaken“-Buttons (`--accent`), Aus = Hintergrund des „Löschen“-Buttons (`--surface`) mit feinem Rand
 6. „Persönliche Aufgaben ansehen“ ersetzt durch **„Als … anmelden“** (Impersonieren) mit rotem Bildschirmrand und Ausstieg im Menü
 
+### Runde 4
+1. Wer nur abhaken (oder nur ansehen) darf, sieht unter „Aufgaben & Projekte“ keine Familien-Einträge mehr, auch nicht unter „Reihenfolge ändern“ (`libSeesFam()` = Recht `edit` oder `assign`; Admins immer). Familien-Aufgaben erscheinen für diese Personen nur in „Heute“ und der Tagesansicht. Sicherheitsregeln unverändert.
+2. Farben auf Android: Ursache war das **erzwungene Abdunkeln des Browsers**, während das System „hell“ meldet. Die Seite wird dann grau umgefärbt (getestet mit `--blink-settings=forceDarkModeEnabled=true`). Lösung ohne Codeänderung: in Tagwerk unter Einstellungen → Darstellung **„Dunkel“** wählen; dann zeigt der Browser das eigene Dunkelblau. Ein `<meta name="color-scheme">`-Tag half im Test nicht und wurde deshalb nicht übernommen.
+
 ### Bewusst nicht umgesetzt (nicht gewünscht)
 - Punkte und Belohnungen für Kinder
 - Kalender-Export (.ics)
@@ -203,7 +207,8 @@ Felder: `id, scope, name, color, rec, created, prio, order, inactive, pauses`.
 
 - **Zuweisung und Rotation sind seit Runde 3 nur noch Anzeige.** Jede Person mit `check` darf jede Familien-Aufgabe abhaken (so gewünscht).
 - **Impersonieren** simuliert die Rechte der Person nur in der App; Firestore prüft weiter das Admin-Konto. Die Freischaltung gilt höchstens 30 Minuten und wird automatisch alle 20 Minuten erneuert. Nach einem Neuladen der Seite ist man wieder man selbst.
-- Ob der Wunsch „Schieberegler heller“ mit der Umsetzung (Aus = weiß bzw. Flächenfarbe, Ein = unverändert `--accent`) getroffen ist, ist noch nicht bestätigt.
+- Ob der Wunsch „Schieberegler heller“ mit der Umsetzung (Aus = weiß bzw. Flächenfarbe, Ein = unverändert `--accent`) getroffen ist, ist noch nicht bestätigt. Die abweichenden Farben am Android-Handy kamen vom erzwungenen Abdunkeln (siehe Runde 4).
+- Die Darstellung („Wie System“ / „Hell“ / „Dunkel“) wird pro Gerät im Browser gespeichert (`localStorage` `tagwerk.theme`).
 - Die Regeln wurden **nicht im Firestore-Emulator** getestet, weil der Download in der Sandbox gesperrt war.
 - Die Statistik hängt am Ladefenster des Logs (200 Tage) und ist daher auf höchstens 90 Tage begrenzt.
 - Mitglieder können nur **einen** Urlaubszeitraum haben. Aufgaben und Projekte können mehrere Pausen haben.
