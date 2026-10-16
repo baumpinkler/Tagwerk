@@ -3,7 +3,7 @@
 Diese Datei fasst den Stand der App zusammen, damit eine neue Sitzung ohne Vorwissen weiterarbeiten kann.
 **Bitte zusammen mit der aktuellen `index.html` und `firestore.rules` hochladen.** `config.js` wird nicht benötigt.
 
-Stand: 12. Oktober 2026
+Stand: 16. Oktober 2026
 
 ---
 
@@ -21,7 +21,7 @@ Eine PWA für Aufgaben in der Familie. Es gibt persönliche Aufgaben, die nur ma
 
 | Datei | Inhalt |
 |---|---|
-| `index.html` | Die komplette App: CSS und Vanilla-JS in einer Datei, ca. 141 KB |
+| `index.html` | Die komplette App: CSS und Vanilla-JS in einer Datei, ca. 150 KB |
 | `firestore.rules` | Sicherheitsregeln, die in der Firebase-Konsole veröffentlicht werden |
 | `config.js` | Firebase-Zugangsdaten (`window.TAGWERK_FIREBASE`). **Nicht ändern.** |
 | `manifest.webmanifest`, `sw.js`, `icon-192.png` | PWA-Dateien (existieren, wurden bisher nicht bearbeitet) |
@@ -40,18 +40,19 @@ In der Reihenfolge im Script:
 1. **CSS**: Farb-Tokens auf `:root`, dazu Dunkelmodus per `prefers-color-scheme` und `data-theme`. `--accent` ist die Primärfarbe, auch für ausgewählte Chips.
 2. **Datum-Helfer**: Alle Tage sind **ganze Tagesnummern** (UTC-Tage seit 1970 des lokalen Datums). Wichtige Funktionen: `todayNum()`, `parts()`, `iso()`, `fromIso()`, `fmtShort()`, `fmtRel()`.
 3. **Zustand**:
-   - `D` = zusammengeführte Sicht `{tasks, projects, log}`. Jeder Eintrag hat `scope: "me" | "fam"`.
-   - `S` = Sitzung (uid, fid, members, requests, phase usw.)
+   - `D` = zusammengeführte Sicht `{tasks, projects, log, ord}`. Jeder Eintrag hat `scope: "me" | "fam"`. `ord` ist die eigene Reihenfolge der Person.
+   - `S` = Sitzung (uid, fid, members, requests, phase usw.). `S.realUid` ist gesetzt, solange ein Admin als andere Person angemeldet ist; `S.uid` ist dann die andere Person.
    - `B` = Backend (Demo oder Firebase)
    - `ui` = Ansicht (`view`, `day`, `reorder`, `q`, `lf`, `lp`, `statDays`)
-4. **Rechte und Zuständigkeit**: `R()`, `rightsOf()`, `memberActiveOn()`, `occAssignee()`, `canAct(t,o)`, `inToday(t,o,day)`, `assignable()`
+4. **Rechte und Zuständigkeit**: `R()`, `rightsOf()`, `memberActiveOn()`, `occAssignee()`, `canAct(t,o)`, `isOther()`, `inToday(t,o,day)`, `inTodayMine()`, `assignable()`
+   **Reihenfolge**: `normName`, `rank`, `ordCmp`, `ordInfo`, `sortBlocks`, `sortTasks`, `ordBlocks`, `groupTasks`, `moveOrd`
 5. **Pausen**: `pausedOn()`, `taskPaused()`, `setActive()`, `pauseTag()`, `activeBox()`, `pausesHtml()`
 6. **Speichern**:
    - `change(fn)` macht einen Snapshot, führt `fn` aus und ruft `commit()` auf.
    - `commit()` vergleicht vorher und nachher. Persönliche Daten werden als *ein* Dokument (`private/{uid}`) geschrieben, Familien-Daten als einzelne Dokumente per Batch.
    - `undo()` stellt den letzten Snapshot wieder her.
-7. **Aktionen**: `toggleDone`, `doMove`, `doSkip`, `doAssign`, `toggleItem`, `advanceAfter`, `reorder`
-8. **Backends**: `demoBackend()`, `firebaseBackend(cfg)` mit denselben Methoden (`savePrivate`, `apply`, `createFamily`, `requestJoin`, `approve`, `updateMember`, …)
+7. **Aktionen**: `toggleDone`, `doMove`, `doSkip`, `doAssign`, `toggleItem`, `advanceAfter`, `moveOrd`
+8. **Backends**: `demoBackend()`, `firebaseBackend(cfg)` mit denselben Methoden (`savePrivate`, `apply`, `createFamily`, `requestJoin`, `approve`, `updateMember`, `impersonate`, `stopImpersonate`, …)
 9. **Darstellung**:
    - `render()` = `renderMain()` + `syncHistory()`
    - Ansichten: `renderToday`, `renderDays`, `renderFamily` (inkl. `statsHtml`), `renderLib` (inkl. `libResultsHtml`, Suche und Filter)
@@ -75,8 +76,8 @@ families/{fid}                 {name, code, createdBy, createdAt}
                                 active (false = inaktiv), away {from, to} | null}
   requests/{uid}               {name, at, code}
   secret/admin                 {pinHash}          (niemand darf lesen)
-  unlocks/{uid}                {hash, until}      (Admin-Einsicht, 15 Min.)
-  private/{uid}                {tasks, projects, log, rev}   (persönliche Daten, 1 Dokument)
+  unlocks/{uid}                {hash, until}      (Freischaltung „als andere Person anmelden“, max. 30 Min., wird alle 20 Min. erneuert)
+  private/{uid}                {tasks, projects, log, ord, rev}   (persönliche Daten + eigene Reihenfolge, 1 Dokument)
   projects/{pid}               Projekt
   tasks/{tid}                  Aufgabe
   log/{taskId}_{orig}          {taskId, orig, d, m, s, by, c}
@@ -109,6 +110,13 @@ Felder: `id, scope, name, color, rec, created, prio, order, inactive, pauses`.
 ```
 - `"after"` = „X Tage nach Erledigung“ (`every` = X). Gibt es nur für Aufgaben ohne Projekt.
 
+### Eigene Reihenfolge (`ord`)
+
+- Wird im persönlichen Dokument jeder Person gespeichert, damit sich die Familienmitglieder ihre Reihenfolge nicht gegenseitig verändern.
+- Schlüssel: `"p:<projektname klein, ohne Randleerzeichen>"` für (gleichnamige, zusammengefasste) Projekte und `"t:<aufgabenId>"` für eigenständige Aufgaben sowie Aufgaben innerhalb eines Projekts. Wert: Rang (Zahl).
+- Sortierung überall: Priorität, dann Rang, dann das alte gemeinsame Feld `order` als Rückfall. Einträge ohne Rang landen am Ende ihrer Prioritätsgruppe.
+- Das Feld `order` bei Aufgaben und Projekten wird nur noch beim Anlegen gesetzt und nicht mehr verändert.
+
 ### Log
 
 - Im Speicher ist der Schlüssel `"taskId|orig"`, in Firestore die Dokument-ID `taskId_orig`.
@@ -137,7 +145,10 @@ Felder: `id, scope, name, color, rec, created, prio, order, inactive, pauses`.
   - Mit Rotation: die Person an Position `rotIdx` in der Reihenfolge. Ist sie inaktiv oder im Urlaub, ist die nächste Person dran.
   - Mit fester Zuweisung: Ist die Person inaktiv oder im Urlaub, wird der Termin `null` (für alle offen).
 - **`rotIdx`** zählt die Regeltermine seit `rotStart` (zwischengespeichert in `rotCache`). Bei „nach Erledigung“ wird stattdessen `rotN` verwendet.
-- **`blocksHtml`** fasst in „Heute“ und der Tagesansicht **gleichnamige Projekte** zusammen, über persönlich und Familie hinweg. Groß- und Kleinschreibung sowie Leerzeichen am Rand zählen dabei nicht.
+- **`blocksHtml`** fasst in „Heute“ und der Tagesansicht **gleichnamige Projekte** zusammen, über persönlich und Familie hinweg. Groß- und Kleinschreibung sowie Leerzeichen am Rand zählen dabei nicht. Erledigte Termine bleiben an ihrem Platz in der Liste (kein eigener „Erledigt“-Bereich mehr).
+- **Fremde Aufgaben**: Familien-Aufgaben, die (für diesen Termin) jemand anderem zugeteilt sind, erscheinen in „Heute“ und der Tagesansicht mit `opacity:.5` (Klasse `.row.other`). Gezählt werden nur die eigenen (`inTodayMine`). Jede Person mit Abhak-Recht darf sie erledigen.
+- **„Reihenfolge ändern“** (`reorderHtml`): eine gemeinsame Liste über persönlich und Familie, gleichnamige Projekte zusammengefasst, Pfeile innerhalb der gleichen Priorität. Jede Person darf sortieren, auch ohne Planungsrecht.
+- **Als andere Person anmelden** (nur Admins, mit Admin-Passwort): `S.uid` wird auf die Person gesetzt, alles läuft mit ihren Rechten und ihren persönlichen Daten. Der Bildschirmrand leuchtet rot (`body.imp`), im Menü gibt es „Zurück zu …“. Firestore schreibt dabei weiter mit dem Admin-Konto; die Rechte der Person werden nur in der App simuliert.
 - **Zurück-Taste**: Solange ein Fenster offen ist oder ein anderer Reiter als „Heute“ angezeigt wird, liegt ein zusätzlicher History-Eintrag oben.
   - „Zurück“ schließt zuerst das Fenster und wechselt dann zu „Heute“.
   - Auf „Heute“ schließt „Zurück“ die App.
@@ -160,6 +171,14 @@ Felder: `id, scope, name, color, rec, created, prio, order, inactive, pauses`.
 5. **Rotation** („Abwechselnd“) mit Vorschau der nächsten Termine
 6. **Statistik** „Erledigt“ unter „Familie“ (7, 30 oder 90 Tage, pro Person aufklappbar)
 
+### Runde 3
+1. 24 Projektfarben (4 neue am Ende)
+2. **Eigene Reihenfolge pro Person** (`ord` im persönlichen Dokument), gemeinsam für persönlich & Familie, gleichnamige Projekte zusammengefasst. Die alte Logik (gemeinsames Feld `order`, Pfeile pro Bereich) ist entfernt.
+3. Fremd zugeteilte Familien-Aufgaben in „Heute“/Tagesansicht blass sichtbar und von allen mit Abhak-Recht erledigbar
+4. Erledigte Aufgaben bleiben an ihrem Platz
+5. Schieberegler: Ein = Farbe des „Abhaken“-Buttons (`--accent`), Aus = Hintergrund des „Löschen“-Buttons (`--surface`) mit feinem Rand
+6. „Persönliche Aufgaben ansehen“ ersetzt durch **„Als … anmelden“** (Impersonieren) mit rotem Bildschirmrand und Ausstieg im Menü
+
 ### Bewusst nicht umgesetzt (nicht gewünscht)
 - Punkte und Belohnungen für Kinder
 - Kalender-Export (.ics)
@@ -176,14 +195,15 @@ Felder: `id, scope, name, color, rec, created, prio, order, inactive, pauses`.
 - **Aufgaben ändern**, drei erlaubte Wege:
   1. Mit `edit` alles, aber `assignee` und `rotation` nur mit `assign`
   2. Mit `assign` nur `assignee`, `rotation`, `rotStart`, `rotN`
-  3. Mit `check` nur `shifts`, `next`, `rotN`, und nur wenn die Aufgabe niemandem, mir, einer inaktiven bzw. abwesenden Person zugewiesen ist (oder ich Admin bin)
-- **`assigneeAway()`**: `active == false` oder Urlaub heute. Der Urlaub wird mit `request.time` geprüft, mit ±1 Tag Spielraum wegen der Zeitzone.
-- **Log**: schreiben, wenn `mayCheckTask` erfüllt ist, gleiche Bedingung wie oben. Löschen zusätzlich mit `edit`.
-- **Persönliche Daten** (`private/{uid}`): nur die Person selbst. Admins dürfen mit Admin-Passwort-Freischaltung (`unlocks`) lesen.
+  3. Mit `check` nur `shifts`, `next`, `rotN` – unabhängig davon, wem die Aufgabe zugewiesen ist
+- **Log**: schreiben, wenn `mayCheckTask` erfüllt ist (= Recht `check`). Löschen zusätzlich mit `edit`.
+- **Persönliche Daten** (`private/{uid}`): die Person selbst. Admins dürfen mit gültiger Admin-Passwort-Freischaltung (`unlocks/{adminUid}`) lesen **und schreiben** (für „Als … anmelden“).
 
 ## 8. Bekannte Einschränkungen & Hinweise
 
-- **Rotation wird nur in der App durchgesetzt.** Rotations-Aufgaben haben `assignee = null`. Die Regeln erlauben deshalb jeder Person mit `check`, sie abzuhaken. Die Regeln können nicht berechnen, wer gerade dran ist.
+- **Zuweisung und Rotation sind seit Runde 3 nur noch Anzeige.** Jede Person mit `check` darf jede Familien-Aufgabe abhaken (so gewünscht).
+- **Impersonieren** simuliert die Rechte der Person nur in der App; Firestore prüft weiter das Admin-Konto. Die Freischaltung gilt höchstens 30 Minuten und wird automatisch alle 20 Minuten erneuert. Nach einem Neuladen der Seite ist man wieder man selbst.
+- Ob der Wunsch „Schieberegler heller“ mit der Umsetzung (Aus = weiß bzw. Flächenfarbe, Ein = unverändert `--accent`) getroffen ist, ist noch nicht bestätigt.
 - Die Regeln wurden **nicht im Firestore-Emulator** getestet, weil der Download in der Sandbox gesperrt war.
 - Die Statistik hängt am Ladefenster des Logs (200 Tage) und ist daher auf höchstens 90 Tage begrenzt.
 - Mitglieder können nur **einen** Urlaubszeitraum haben. Aufgaben und Projekte können mehrere Pausen haben.

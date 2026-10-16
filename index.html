@@ -172,9 +172,10 @@ select.inp.inline{width:auto;display:inline-block}
 .switch-row small{color:var(--muted);font-size:14px}
 .switch{position:relative;width:52px;height:32px;flex:none}
 .switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
-.switch i{position:absolute;inset:0;border-radius:16px;background:var(--line);transition:background .2s}
-.switch i::after{content:"";position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
-.switch input:checked+i{background:var(--accent)}
+.switch i{position:absolute;inset:0;border-radius:16px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);transition:background .2s,box-shadow .2s}
+.switch i::after{content:"";position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 0 0 1px var(--line),0 1px 3px rgba(0,0,0,.2)}
+.switch input:checked+i{background:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.switch input:checked+i::after{box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .switch input:checked+i::after{transform:translateX(20px)}
 .switch input:focus-visible+i{outline:3px solid var(--accent);outline-offset:2px}
 .radio{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
@@ -242,6 +243,16 @@ span.check{display:grid}
 .rt{padding:10px 0;border-top:1px solid var(--line)}
 .box>.rt:first-child,.box>.note+.rt{border-top:0}
 .is-off{opacity:.55}
+.row.other{opacity:.5}
+.ord-head{display:flex;align-items:center;gap:9px}
+.ord-head b{font-size:16px}
+body.imp::before,body.imp::after{content:"";position:fixed;top:0;bottom:0;width:26px;pointer-events:none;z-index:60;animation:impGlow 2.8s ease-in-out infinite}
+body.imp::before{left:0;background:linear-gradient(90deg,rgba(226,48,48,.55),rgba(226,48,48,0))}
+body.imp::after{right:0;background:linear-gradient(270deg,rgba(226,48,48,.55),rgba(226,48,48,0))}
+@keyframes impGlow{0%,100%{opacity:.5}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){body.imp::before,body.imp::after{animation:none;opacity:.8}}
+.btn.imp-exit{width:100%;border-color:#D64545;color:#C53030;background:rgba(214,69,69,.08)}
+.imp-note{font-size:14px;color:var(--muted);margin:0 0 10px}
 textarea.inp.plain{font-family:var(--body);font-size:16px;min-height:72px}
 .cl-row{display:flex;gap:6px;align-items:center;margin-bottom:8px}
 .citem{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:10px 12px}
@@ -286,7 +297,8 @@ const WD = ["Mo","Di","Mi","Do","Fr","Sa","So"];
 const WDL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const MON = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 const COLORS = ["#3B6FD8","#2E9C8A","#C2503D","#8A5CC9","#C98A12","#5E7A3A","#E06B1F","#B3478A","#1F4E8C","#3F9C35",
-                "#17A2C6","#E0457B","#5B4FCF","#8B5A2B","#9CB82E","#7A2E3A","#5B6B7F","#D4B106","#E88D7A","#A08CD9"];
+                "#17A2C6","#E0457B","#5B4FCF","#8B5A2B","#9CB82E","#7A2E3A","#5B6B7F","#D4B106","#E88D7A","#A08CD9",
+                "#0E6E73","#7FB3D5","#C68E5B","#6CCB9E"];
 
 function todayNum(){ const n=new Date(); return Math.round(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())/DAY); }
 function parts(dn){ const d=new Date(dn*DAY); return {y:d.getUTCFullYear(), m:d.getUTCMonth()+1, d:d.getUTCDate(), wd:(d.getUTCDay()+6)%7}; }
@@ -312,16 +324,16 @@ function newRec(type,start){
   const p=parts(start);
   return {type, start, end:null, every:1, weekdays:[p.wd], monthDays:[p.d], yearDates:[{m:p.m,d:p.d}]};
 }
-const emptyData=()=>({tasks:[], projects:[], log:{}});
+const emptyData=()=>({tasks:[], projects:[], log:{}, ord:{}});
 let D = emptyData();
-const S = {mode:null, phase:"loading", uid:null, fid:null, family:null, members:{}, requests:[], familyName:"", isAnon:true, email:null, error:null};
+const S = {mode:null, phase:"loading", uid:null, realUid:null, fid:null, family:null, members:{}, requests:[], familyName:"", isAnon:true, email:null, error:null};
 let B = null; // Backend (Demo oder Firebase)
 
 const PRIO=[[1,"Hoch"],[2,"Mittel"],[3,"Niedrig"]];
-const RIGHTS=[["check","Abhaken & verschieben","Familien-Aufgaben erledigen, die ihr oder niemandem zugewiesen sind."],
+const RIGHTS=[["check","Abhaken & verschieben","Familien-Aufgaben erledigen und verschieben, auch solche, die anderen zugewiesen sind."],
               ["edit","Anlegen & bearbeiten","Familien-Projekte und -Aufgaben erstellen, ändern und löschen."],
               ["assign","Zuweisen","Aufgaben einer Person geben, die abhaken darf."],
-              ["admin","Admin","Mitglieder aufnehmen, Rechte vergeben, mit Admin-Passwort persönliche Aufgaben einsehen."]];
+              ["admin","Admin","Mitglieder aufnehmen, Rechte vergeben, sich mit Admin-Passwort als andere Person anmelden."]];
 
 function normalize(){
   let i=0;
@@ -340,9 +352,49 @@ function container(item){
                         : [...D.projects, ...D.tasks.filter(t=>!t.projectId)].filter(x=>x.scope===sc);
 }
 function nextOrder(item){ return container(item).reduce((m,x)=>Math.max(m,x.order|0),-1)+1; }
-function neighbours(item){
-  const list=container(item).sort(byPrio), i=list.indexOf(item);
-  return {up: i>0 && list[i-1].prio===item.prio, down: i<list.length-1 && list[i+1].prio===item.prio};
+
+/* ---------- Reihenfolge pro Person ----------
+   D.ord = {Schlüssel: Rang}, gespeichert im persönlichen Dokument jeder Person.
+   Schlüssel: "p:<projektname>" (gleichnamige Projekte zusammen, persönlich & Familie)
+   und "t:<aufgabe>" (eigenständige Aufgaben bzw. Aufgaben innerhalb eines Projekts).
+   Sortiert wird nach Priorität, dann eigenem Rang; Neues ohne Rang kommt ans Ende. */
+const normName = n => String(n||"").trim().toLocaleLowerCase("de");
+function rank(k){ const v=D.ord && D.ord[k]; return typeof v==="number" ? v : 1e9; }
+const ordCmp=(a,b)=>(a.prio-b.prio)||(rank(a.key)-rank(b.key))||(a.order-b.order);
+function groupPrio(nn){ let pr=9; for(const p of D.projects) if(normName(p.name)===nn) pr=Math.min(pr,p.prio); return pr===9?2:pr; }
+function ordInfo(x){ // für Projekte und eigenständige Aufgaben
+  if(x.name!==undefined){ const nn=normName(x.name); return {key:"p:"+nn, prio:groupPrio(nn), order:x.order|0}; }
+  return {key:"t:"+x.id, prio:x.prio, order:x.order|0};
+}
+const taskInfo = t => ({key:"t:"+t.id, prio:t.prio, order:t.order|0});
+function sortBlocks(arr){ return arr.map(x=>[ordInfo(x),x]).sort((a,b)=>ordCmp(a[0],b[0])).map(e=>e[1]); }
+function sortTasks(arr){ return arr.map(t=>[taskInfo(t),t]).sort((a,b)=>ordCmp(a[0],b[0])).map(e=>e[1]); }
+function ordBlocks(){ // alle Blöcke über persönlich und Familie hinweg
+  const groups=new Map(), out=[];
+  for(const p of D.projects){
+    const k="p:"+normName(p.name);
+    if(!groups.has(k)){ const g={key:k, projects:[], prio:9, order:1e9}; groups.set(k,g); out.push(g); }
+    const g=groups.get(k); g.projects.push(p); g.prio=Math.min(g.prio,p.prio); g.order=Math.min(g.order,p.order|0);
+  }
+  for(const t of D.tasks) if(!t.projectId || !project(t.projectId)) out.push({key:"t:"+t.id, task:t, prio:t.prio, order:t.order|0});
+  return out.sort(ordCmp);
+}
+function groupTasks(g){ const ids=new Set(g.projects.map(p=>p.id)); return D.tasks.filter(t=>ids.has(t.projectId)).map(taskInfo).sort(ordCmp); }
+function moveOrd(key, grp, dir){
+  const blocks=ordBlocks(), g=grp? blocks.find(x=>x.key===grp) : null;
+  const list=grp? (g? groupTasks(g) : []) : blocks;
+  const i=list.findIndex(x=>x.key===key), j=i+dir;
+  if(i<0 || j<0 || j>=list.length || list[j].prio!==list[i].prio) return;
+  change(()=>{
+    const o=Object.assign({}, D.ord||{});
+    list.forEach((x,n)=>o[x.key]=n);
+    o[list[i].key]=j; o[list[j].key]=i;
+    // nicht mehr vorhandene Einträge aufräumen
+    const valid=new Set([...D.projects.map(p=>"p:"+normName(p.name)), ...D.tasks.map(t=>"t:"+t.id)]);
+    for(const k of Object.keys(o)) if(!valid.has(k)) delete o[k];
+    D.ord=o;
+  });
+  render();
 }
 
 /* ---------- Rechte ---------- */
@@ -409,14 +461,19 @@ function occAssigneeText(t,o,day){
   if(t.assignee && !hasRot(t)) return "für alle, solange "+(t.assignee===S.uid?"du nicht da bist":esc(nameOfNom(t.assignee))+" nicht da ist");
   return "für alle";
 }
-function canAct(t,o){ if(t.scope!=="fam") return true; const r=R(); if(!r.check) return false; if(r.admin) return true; const a=occAssignee(t,o,todayNum()); return a==null || a===S.uid; }
+// Mit Abhak-Recht darf man jede Familien-Aufgabe erledigen, auch wenn sie jemand anderem zugeteilt ist
+function canAct(t,o){ return t.scope!=="fam" || R().check; }
+function isOther(t,o,day){ if(t.scope!=="fam") return false; const a=occAssignee(t,o,day); return !!a && a!==S.uid; }
 function canEditItem(x){ return x.scope!=="fam" || R().edit; }
 function assignable(keep){ const kk=[].concat(keep||[]); return Object.entries(S.members).filter(([u,m])=>rightsOf(m).check && (m.active!==false || kk.includes(u))).map(([uid,m])=>({uid,name:m.name+(m.active===false?" (inaktiv)":""),color:m.color})).sort((a,b)=>a.name.localeCompare(b.name)); }
 function nameOf(uid){ if(uid===S.uid) return "dir"; return (S.members[uid]&&S.members[uid].name)||"ehemaligem Mitglied"; }
 function nameOfNom(uid){ if(uid===S.uid) return "dich"; return (S.members[uid]&&S.members[uid].name)||"ehemaliges Mitglied"; }
 function rightsSummary(m){ const r=rightsOf(m); if(r.admin) return "Admin"; const a=[]; if(r.edit) a.push("plant"); if(r.assign) a.push("weist zu"); if(r.check) a.push("hakt ab"); return a.length? joinDe(a).replace(/^./,c=>c.toUpperCase()) : "Nur ansehen"; }
 // Filter für „Heute“/Tagesansicht, je Termin: (Aufgabe, Termin, angezeigter Tag)
-const inToday = (t,o,day) => { if(t.scope!=="fam") return true; if(!R().check || !memberActiveOn(S.uid, day??todayNum())) return false; const a=occAssignee(t,o,day); return a==null || a===S.uid; };
+// Filter für „Heute“/Tagesansicht, je Termin: (Aufgabe, Termin, angezeigter Tag).
+// Aufgaben, die anderen zugeteilt sind, erscheinen mit; gezählt werden nur die eigenen (inTodayMine).
+const inToday = (t,o,day) => t.scope!=="fam" || (R().check && memberActiveOn(S.uid, day??todayNum()));
+const inTodayMine = (t,o,day) => inToday(t,o,day) && !isOther(t,o,day);
 
 /* ---------- Aufgaben & Projekte inaktiv schalten ----------
    inactive:true = ruht gerade. pauses = Zeiträume {from,to} (to=null: läuft noch),
@@ -467,17 +524,19 @@ function subset(scope){
     if(scope==="me" && Math.max(o, L.m??o, L.d??o) < T-150) continue; // alte Einträge aufräumen
     log[k]=L;
   }
-  return {tasks:clone(tasks), projects:clone(D.projects.filter(p=>p.scope===scope)), log:clone(log)};
+  const out={tasks:clone(tasks), projects:clone(D.projects.filter(p=>p.scope===scope)), log:clone(log)};
+  if(scope==="me") out.ord=clone(D.ord||{});
+  return out;
 }
 function rebuild(priv, fam){
   D={ tasks:[...(priv.tasks||[]).map(t=>({...t,scope:"me"})), ...(fam.tasks||[]).map(t=>({...t,scope:"fam"}))],
       projects:[...(priv.projects||[]).map(p=>({...p,scope:"me"})), ...(fam.projects||[]).map(p=>({...p,scope:"fam"}))],
-      log:{...(priv.log||{}), ...(fam.log||{})} };
+      log:{...(priv.log||{}), ...(fam.log||{})}, ord:clone(priv.ord||{}) };
   normalize();
 }
 function snapState(){
   const m=a=>new Map(a.map(x=>[x.id,JSON.stringify(x)]));
-  return {t:m(D.tasks), p:m(D.projects), l:new Map(Object.entries(D.log).map(([k,v])=>[k,JSON.stringify(v)]))};
+  return {t:m(D.tasks), p:m(D.projects), l:new Map(Object.entries(D.log).map(([k,v])=>[k,JSON.stringify(v)])), o:JSON.stringify(D.ord||{})};
 }
 /* Vergleicht vorher/nachher und schreibt nur, was sich geändert hat:
    persönliche Daten als ein Dokument, Familien-Daten als einzelne Einträge. */
@@ -496,6 +555,7 @@ function commit(before){
     if(j===before.l.get(k)) continue;
     if(tScope(k.split("|")[0])==="fam") ops.push({op:cur?"set":"del",kind:"log",id:k,data:cur?clone(cur):null}); else priv=true;
   }
+  if(JSON.stringify(D.ord||{})!==before.o) priv=true;
   if(priv) B.savePrivate(subset("me"));
   if(ops.length) B.apply(ops).catch(err=>{ console.warn(err); toast("Das wurde nicht gespeichert: fehlende Berechtigung oder keine Verbindung."); });
 }
@@ -505,7 +565,7 @@ function undo(){
   if(!undoBefore) return;
   const target=undoBefore, now=snapState();
   const back=m=>[...m.values()].map(j=>JSON.parse(j));
-  D.tasks=back(target.t); D.projects=back(target.p); D.log=Object.fromEntries([...target.l].map(([k,j])=>[k,JSON.parse(j)]));
+  D.tasks=back(target.t); D.projects=back(target.p); D.log=Object.fromEntries([...target.l].map(([k,j])=>[k,JSON.parse(j)])); D.ord=JSON.parse(target.o||"{}");
   undoBefore=null; commit(now); render(); hideToast();
 }
 
@@ -524,7 +584,6 @@ function moveOcc(o, target){
 }
 function denyMsg(t,o){
   if(t.scope==="fam" && !R().check) return "Du darfst Familien-Aufgaben nur ansehen.";
-  if(t.scope==="fam") return (hasRot(t)?"Dieser Termin ist ":"Diese Aufgabe ist ")+nameOf(occAssignee(t,o,todayNum()))+" zugewiesen.";
   return "";
 }
 // Bei „nach Erledigung“: nächsten Termin festlegen; bei Rotation: weiterzählen
@@ -572,16 +631,6 @@ function doAssign(taskId, uid){
   change(()=>{ t.assignee=uid||null; delete t.rotation; delete t.rotStart; delete t.rotN; });
   closeSheet(); render(); toast(uid? "Zugewiesen an "+nameOfNom(uid).replace(/^dich$/,"dich")+"." : "Für alle freigegeben.", true);
 }
-function reorder(item,dir){
-  if(!canEditItem(item)) return;
-  change(()=>{
-    const list=container(item).sort(byPrio); list.forEach((x,i)=>x.order=i);
-    const i=list.indexOf(item), j=i+dir;
-    if(j<0 || j>=list.length || list[j].prio!==item.prio) return;
-    [list[i].order,list[j].order]=[list[j].order,list[i].order];
-  });
-  render();
-}
 
 /* =====================================================================
    Backend 1: Demo – alles nur auf diesem Gerät, mehrere Personen simulierbar
@@ -599,8 +648,9 @@ function demoBackend(){
   if(!st) st={current:"u-"+uid(), fam:null, users:{}};
   const persist=()=>{ try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} };
   const F=()=>st.fam;
+  let impAs=null; // Admin ist gerade als diese Person angemeldet
   const sync=()=>{
-    const f=F(); S.uid=st.current;
+    const f=F(); S.uid=impAs||st.current; S.realUid=impAs? st.current : null;
     const u=st.users[S.uid]||(f&&(f.members[S.uid]||f.requests[S.uid])?{fid:f.id,familyName:f.name}:{}); S.fid=u.fid||null; S.familyName=u.familyName||"";
     if(!f || S.fid!==f.id){ S.phase="welcome"; S.members={}; rebuild(emptyData(),emptyData()); return; }
     if(!f.members[S.uid]){ if(f.requests[S.uid]){ S.phase="waiting"; } else { S.phase="welcome"; } S.members={}; return; }
@@ -638,12 +688,13 @@ function demoBackend(){
     async updateMember(uid,patch){ Object.assign(F().members[uid],clone(patch)); persist(); sync(); },
     async removeMember(uid){ const f=F(); delete f.members[uid]; delete f.priv[uid]; for(const t of Object.values(f.tasks)) if(t.assignee===uid) t.assignee=null; persist(); sync(); },
     async setPin(pin){ const f=F(); f.pinHash=await pinHash(f.id,pin); persist(); },
-    async readPrivate(uid,pin){ const f=F(); if(await pinHash(f.id,pin)!==f.pinHash) throw new Error("pin"); return clone(f.priv[uid]||emptyData()); },
+    async impersonate(uid,pin){ const f=F(); if(await pinHash(f.id,pin)!==f.pinHash) throw new Error("pin"); if(!f.members[uid]) throw new Error("member"); impAs=uid; sync(); },
+    async stopImpersonate(){ impAs=null; sync(); },
     async renameFamily(name){ F().name=name; persist(); sync(); },
     // nur Demo:
     people(){ const f=F(); if(!f) return []; return [...Object.entries(f.members).map(([uid,m])=>({uid,name:m.name,member:true})), ...Object.entries(f.requests).map(([uid,r])=>({uid,name:r.name+" (wartet)",member:false}))]; },
-    switchTo(uid){ st.current=uid; persist(); sync(); },
-    newDevice(){ st.current="u-"+uid(); persist(); sync(); },
+    switchTo(uid){ impAs=null; st.current=uid; persist(); sync(); },
+    newDevice(){ impAs=null; st.current="u-"+uid(); persist(); sync(); },
     simulateRequest(){ const f=F(); const names=["Oma Erika","Lena","Max","Tante Bea"]; const nm=names[Object.keys(f.requests).length%names.length]; const id="u-"+uid(); f.requests[id]={name:nm, at:Date.now()}; st.users[id]={fid:f.id, familyName:f.name}; persist(); sync(); },
     reset(){ try{ localStorage.removeItem(KEY); }catch(e){} location.reload(); },
   };
@@ -659,7 +710,7 @@ async function firebaseBackend(cfg){
   const app=A.initializeApp(cfg), auth=AU.getAuth(app);
   let db; try{ db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})}); }catch(e){ db=F.getFirestore(app); }
   const {doc,collection,getDoc,setDoc,updateDoc,deleteDoc,onSnapshot,writeBatch,query,where,Timestamp}=F;
-  let unsubs=[], reqUnsub=null, fam=emptyData(), privRev=-1, privTimer=null, privPending=null;
+  let unsubs=[], reqUnsub=null, fam=emptyData(), privRev=-1, privTimer=null, privPending=null, impHash=null, impTimer=null;
   const stop=()=>{ unsubs.forEach(u=>u()); unsubs=[]; if(reqUnsub){reqUnsub();reqUnsub=null;} };
   const fd=(...p)=>doc(db,"families",S.fid,...p);
   const fc=(name)=>collection(db,"families",S.fid,name);
@@ -675,6 +726,7 @@ async function firebaseBackend(cfg){
         if(!wasApp){ S.phase="app"; watchFamily(); }
         watchRequests(); render(); return;
       }
+      if(S.realUid){ await be.stopImpersonate(); toast("Diese Person ist nicht mehr in der Familie."); return; }
       if(S.phase==="app"){ stop(); S.phase="welcome"; S.fid=null; S.members={}; rebuild(emptyData(),emptyData()); try{ await deleteDoc(doc(db,"users",S.uid)); }catch(e){} render(); toast("Du bist nicht mehr Mitglied dieser Familie."); return; }
       try{ const r=await getDoc(fd("requests",S.uid)); S.phase=r.exists()?"waiting":"welcome"; }catch(e){ S.phase="welcome"; }
       render();
@@ -702,10 +754,13 @@ async function firebaseBackend(cfg){
     }, onErr));
   }
   async function flushPrivate(){
-    if(!privPending) return; const data=privPending; privPending=null;
-    data.rev=Date.now(); privRev=data.rev;
-    try{ await setDoc(fd("private",S.uid), data); }catch(e){ onErr(e); toast("Persönliche Aufgaben konnten nicht gespeichert werden."); }
+    clearTimeout(privTimer);
+    if(!privPending) return; const {uid:pu, data}=privPending; privPending=null;
+    data.rev=Date.now(); if(pu===S.uid) privRev=data.rev;
+    try{ await setDoc(fd("private",pu), data); }catch(e){ onErr(e); toast("Persönliche Aufgaben konnten nicht gespeichert werden."); }
   }
+  // Freischaltung für das Anmelden als andere Person (gilt max. 30 Min., wird alle 20 Min. erneuert)
+  const writeUnlock=()=>setDoc(fd("unlocks",S.realUid||S.uid),{hash:impHash, until:Timestamp.fromMillis(Date.now()+29*60000)});
 
   const be={
     kind:"firebase",
@@ -715,7 +770,7 @@ async function firebaseBackend(cfg){
       S.fid=us.exists()? us.data().fid : null; S.familyName=us.exists()? (us.data().familyName||"") : "";
       if(S.fid) watch(); else S.phase="welcome";
     },
-    savePrivate(data){ privPending=data; clearTimeout(privTimer); privTimer=setTimeout(flushPrivate,600); },
+    savePrivate(data){ privPending={uid:S.uid, data}; clearTimeout(privTimer); privTimer=setTimeout(flushPrivate,600); },
     async apply(ops){
       const b=writeBatch(db);
       for(const o of ops){
@@ -762,10 +817,21 @@ async function firebaseBackend(cfg){
       b.delete(fd("members",uid)); await b.commit();
     },
     async setPin(pin){ await setDoc(fd("secret","admin"),{pinHash:await pinHash(S.fid,pin)}); },
-    async readPrivate(uid,pin){
-      try{ await setDoc(fd("unlocks",S.uid),{hash:await pinHash(S.fid,pin), until:Timestamp.fromMillis(Date.now()+15*60000)}); }
-      catch(e){ throw new Error("pin"); }
-      const s=await getDoc(fd("private",uid)); return s.exists()? s.data() : emptyData();
+    async impersonate(uid,pin){
+      impHash=await pinHash(S.fid,pin);
+      try{ await writeUnlock(); }catch(e){ impHash=null; throw new Error("pin"); }
+      await flushPrivate();
+      S.realUid=S.uid; S.uid=uid;
+      clearInterval(impTimer); impTimer=setInterval(()=>writeUnlock().catch(onErr), 20*60000);
+      watch();
+    },
+    async stopImpersonate(){
+      if(!S.realUid) return;
+      await flushPrivate();
+      clearInterval(impTimer); impTimer=null;
+      S.uid=S.realUid; S.realUid=null;
+      try{ await deleteDoc(fd("unlocks",S.uid)); }catch(e){}
+      impHash=null; watch();
     },
     async renameFamily(name){ await updateDoc(doc(db,"families",S.fid),{name}); },
     async secure(email,pw){ const cred=AU.EmailAuthProvider.credential(email,pw); const r=await AU.linkWithCredential(auth.currentUser,cred); S.isAnon=false; S.email=r.user.email; },
@@ -799,6 +865,7 @@ const VIEWNAME={today:"Heute", days:"Tagesansicht", family:"Familie", lib:"Aufga
 function render(){ renderMain(); syncHistory(); }
 function renderMain(){
   const inApp=S.phase==="app";
+  document.body.classList.toggle("imp", !!S.realUid);
   $foot.hidden=!inApp;
   if(S.phase==="loading"){ $app.innerHTML=`<div class="empty" style="margin-top:40vh;transform:translateY(-50%)"><p>Lädt …</p></div>`; return; }
   if(S.phase==="error"){ $app.innerHTML=errorHtml(); return; }
@@ -878,13 +945,13 @@ function rowHtml(o, meta, opts={}){
   if(t.scope==="fam"){
     if(o.done){ const L=D.log[o.key]||{}; if(L.by) m.push("erledigt von "+(L.by===S.uid?"dir":esc(nameOfNom(L.by)))); }
     else if(opts.showAssignee) m.push(occAssigneeText(t,o,dd));
-    else m.push(occAssignee(t,o,dd)===S.uid? "Familie, für dich" : "Familie");
+    else { const a=occAssignee(t,o,dd); m.push(a===S.uid? "Familie, für dich" : a? "Familie, für "+esc(nameOfNom(a)) : "Familie"); }
   }
   if(o.done && o.doneOn!=null && o.doneOn!==o.eff) m.push(fmtRel(o.doneOn));
   const its=t.items||[];
   if(its.length && !o.done){ const c=(D.log[o.key]||{}).c||[]; m.push("Liste "+its.filter(x=>c.includes(x.id)).length+"/"+its.length); }
-  const act=canAct(t,o);
-  return `<div class="row${o.done?" done":""}${t.prio===1&&!o.done?" hi":""}">
+  const act=canAct(t,o), oth=opts.dimOthers && isOther(t,o,dd);
+  return `<div class="row${o.done?" done":""}${t.prio===1&&!o.done?" hi":""}${oth?" other":""}">
     <button class="check${o.done?" on":""}${act?"":" locked"}" data-a="toggle" data-k="${o.key}" aria-pressed="${o.done}" ${act?"":'aria-disabled="true"'} aria-label="${esc(t.title)} ${o.done?"als offen markieren":"abhaken"}">${act||o.done?ICON.check:""}</button>
     <button class="row-main" data-a="occ" data-k="${o.key}">
       <div class="row-title">${esc(t.title)}</div>${m.length?`<div class="row-meta">${m.join(", ")}</div>`:""}
@@ -903,15 +970,15 @@ function blocksHtml(items, opts){
       if(!blocks.has(k)) blocks.set(k,{refs:[],inst:new Map(),items:[]});
       const bl=blocks.get(k); if(!bl.refs.includes(pr)) bl.refs.push(pr); bl.inst.set(pr.id+"|"+P,{id:pr.id,P}); bl.items.push(it);
     }
-    else blocks.set("t|"+it.o.key,{ref:t,P:it.o.eff,items:[it]});
+    else blocks.set("t|"+it.o.key,{ref:t,P:it.o.orig,items:[it]});
   }
   for(const bl of blocks.values()) if(bl.refs){ bl.refs.sort(byPrio); bl.ref=bl.refs[0]; bl.P=Math.min(...[...bl.inst.values()].map(x=>x.P)); }
-  // persönliche und Familien-Einträge gleicher Priorität: nach Reihenfolge, dann Datum
-  const arr=[...blocks.values()].sort((a,b)=>(a.ref.prio-b.ref.prio)||(a.ref.scope===b.ref.scope?a.ref.order-b.ref.order:0)||(a.P-b.P));
+  // eigene Reihenfolge (persönlich & Familie gemeinsam), dann Datum
+  const arr=[...blocks.values()].map(b=>[ordInfo(b.ref),b]).sort((a,b)=>ordCmp(a[0],b[0])||(a[1].P-b[1].P)).map(e=>e[1]);
   return arr.map(b=>{
     if(b.ref.name===undefined){ const it=b.items[0]; return rowHtml(it.o, it.over?overMeta(it.o):"", opts); }
     const pg={done:0,total:0}; for(const x of b.inst.values()){ const q=projProgress(x.id,x.P); pg.done+=q.done; pg.total+=q.total; }
-    const rows=b.items.sort((x,y)=>byPrio(x.o.t,y.o.t)||(x.o.eff-y.o.eff)).map(it=>rowHtml(it.o, it.over?overMeta(it.o):"", opts)).join("");
+    const rows=b.items.sort((x,y)=>ordCmp(taskInfo(x.o.t),taskInfo(y.o.t))||(x.o.orig-y.o.orig)).map(it=>rowHtml(it.o, it.over?overMeta(it.o):"", opts)).join("");
     return `<div class="pblock" style="--pc:${b.ref.color}"><div class="phead"><span class="pdot"></span><b>${esc(b.ref.name)}</b>${b.refs.every(r=>r.scope==="fam")&&!(opts&&opts.showAssignee)?'<span class="tag">Familie</span>':""}<span class="pcount">${pg.done} von ${pg.total}</span></div>${rows}</div>`;
   }).join("");
 }
@@ -919,17 +986,14 @@ function dayListHtml(day, filter, opts={}){
   const T=todayNum(), isToday=day===T;
   opts=Object.assign({day}, opts);
   const {due,overdue,missed}=dayModel(day, filter);
-  const open=[...overdue.map(o=>({o,over:true})), ...due.filter(o=>!o.done).map(o=>({o}))];
-  const done=due.filter(o=>o.done);
+  // Offene und erledigte Termine in einer Liste: Erledigtes bleibt an seinem Platz
+  const items=[...overdue.map(o=>({o,over:true})), ...due.map(o=>({o}))];
   let h="";
   if(!D.tasks.length && !opts.showAssignee){
     return `<div class="empty"><div class="big">Noch keine Aufgaben</div><p>Leg die erste an, zum Beispiel „Pflanzen gießen“ jeden Dienstag.</p><button class="btn primary" data-a="newTask">Aufgabe anlegen</button></div>`;
   }
-  if(open.length) h+=`<div class="list"${opts.tight?"":' style="margin-top:14px"'}>${blocksHtml(open,opts)}</div>`;
-  else h+=`<div class="empty"${opts.tight?' style="margin-top:0"':""}><div class="big">${done.length?"Alles erledigt.":"Nichts geplant."}</div><p>${done.length?"Für "+(isToday?"heute":"diesen Tag")+" ist alles abgehakt.":"Für "+(isToday?"heute":"diesen Tag")+" steht keine Aufgabe an."}</p></div>`;
-  if(done.length){
-    h+=`<section class="sec"><details class="done-wrap"${open.length?"":" open"}><summary>Erledigt (${done.length})</summary><div class="list">${done.sort((a,b)=>byPrio(a.t,b.t)).map(o=>rowHtml(o, o.t.projectId&&project(o.t.projectId)&&o.t.scope!=="fam"?esc(project(o.t.projectId).name):"", opts)).join("")}</div></details></section>`;
-  }
+  if(items.length) h+=`<div class="list"${opts.tight?"":' style="margin-top:14px"'}>${blocksHtml(items,opts)}</div>`;
+  else h+=`<div class="empty"${opts.tight?' style="margin-top:0"':""}><div class="big">Nichts geplant.</div><p>Für ${isToday?"heute":"diesen Tag"} steht keine Aufgabe an.</p></div>`;
   if(missed.length){
     h+=`<section class="sec"><details class="done-wrap"><summary>Verpasst, nicht verschiebbar (${missed.length})</summary><div class="list">${missed.map(o=>rowHtml(o,"war am "+fmtShort(o.eff),opts)).join("")}</div></details></section>`;
   }
@@ -943,12 +1007,12 @@ function ringHtml(done,total){
 /* ---------- Ansichten ---------- */
 function renderToday(){
   const T=todayNum(), p=parts(T);
-  const {due,overdue}=dayModel(T, inToday);
+  const {due,overdue}=dayModel(T, inTodayMine);
   const total=due.length+overdue.length, doneN=due.filter(o=>o.done).length, openN=total-doneN;
   const sub = !total ? "Heute steht nichts an" : openN===0 ? "Alles erledigt" : openN===1 ? "1 Aufgabe offen" : openN+" Aufgaben offen";
   let h=`<header class="top"><div><h1 class="top-title">${WDL[p.wd]}, ${p.d}. ${MON[p.m-1]}</h1><div class="top-sub">${sub}</div></div>${total?ringHtml(doneN,total):""}</header>`;
   if(S.requests.length) h+=`<button class="notice-btn" data-a="go" data-v="family">${S.requests.length===1?"1 Person möchte":S.requests.length+" Personen möchten"} der Familie beitreten</button>`;
-  h+=dayListHtml(T, inToday);
+  h+=dayListHtml(T, inToday, {dimOthers:true});
   if(R().check && !memberActive(S.uid) && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Du bist für Familien-Aufgaben gerade abgemeldet (inaktiv oder im Urlaub). Sie stehen unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
   else if(!R().check && D.tasks.some(isFam)) h+=`<p class="note" style="text-align:center;margin-top:16px">Familien-Aufgaben siehst du unter <button class="link-btn" data-a="go" data-v="family">Familie</button>.</p>`;
   return h;
@@ -958,14 +1022,14 @@ function renderDays(){
   let h=`<header class="top"><div><h1 class="top-title">Tagesansicht</h1><div class="top-sub">${MON[parts(mon).m-1]} ${parts(mon).y}</div></div></header>`;
   h+=`<div class="week" role="group" aria-label="Woche">`;
   for(let i=0;i<7;i++){
-    const dn=mon+i, q=parts(dn), m=dayModel(dn, inToday);
+    const dn=mon+i, q=parts(dn), m=dayModel(dn, inTodayMine);
     const items=m.due.length+(dn===T?m.overdue.length:0), dd=m.due.filter(o=>o.done).length;
     h+=`<button class="wk${dn===T?" is-today":""}${dn===day?" is-sel":""}" data-a="day" data-v="${dn}" aria-label="${WDL[q.wd]}, ${q.d}. ${MON[q.m-1]}: ${items} Aufgaben"${dn===day?' aria-current="date"':""}>
       <small>${WD[q.wd]}</small><b>${q.d}</b><span class="dots">${Array.from({length:Math.min(items,4)},()=>`<i class="${items&&dd===items?"all":""}"></i>`).join("")}</span></button>`;
   }
   h+=`</div><div class="week-nav"><button class="link-btn" data-a="day" data-v="${day-7}">Vorige Woche</button>${day!==T?`<button class="link-btn" data-a="day" data-v="${T}">Heute</button>`:""}<button class="link-btn" data-a="day" data-v="${day+7}">Nächste Woche</button></div>`;
   h+=`<h2 class="day-title">${day===T?"Heute, ":day===T+1?"Morgen, ":day===T-1?"Gestern, ":""}${WDL[p.wd]}, ${p.d}. ${MON[p.m-1]}</h2>`;
-  return h+dayListHtml(day, inToday, {tight:true});
+  return h+dayListHtml(day, inToday, {tight:true, dimOthers:true});
 }
 function renderFamily(){
   const r=R(), T=todayNum(), mem=Object.entries(S.members).sort((a,b)=>(a[0]===S.uid?-1:b[0]===S.uid?1:a[1].name.localeCompare(b[1].name)));
@@ -1007,9 +1071,35 @@ function statsHtml(){
   return h;
 }
 function prioTag(x){ return x.prio===1?'<span class="tag hi">Hoch</span>':x.prio===3?'<span class="tag">Niedrig</span>':""; }
-function arrowsHtml(kind,x){
-  const n=neighbours(x), name=esc(kind==="p"?x.name:x.title);
-  return `<span class="arrows"><button data-a="up" data-kind="${kind}" data-v="${x.id}" ${n.up?"":"disabled"} aria-label="${name} nach oben">${ICON.up}</button><button data-a="down" data-kind="${kind}" data-v="${x.id}" ${n.down?"":"disabled"} aria-label="${name} nach unten">${ICON.down}</button></span>`;
+function arrowsHtml(list, i, grp, name){
+  const up=i>0 && list[i-1].prio===list[i].prio, down=i<list.length-1 && list[i+1].prio===list[i].prio;
+  const at=`data-k="${esc(list[i].key)}" data-g="${esc(grp||"")}"`;
+  return `<span class="arrows"><button data-a="ordUp" ${at} ${up?"":"disabled"} aria-label="${esc(name)} nach oben">${ICON.up}</button><button data-a="ordDown" ${at} ${down?"":"disabled"} aria-label="${esc(name)} nach unten">${ICON.down}</button></span>`;
+}
+/* „Reihenfolge ändern“: eine gemeinsame Liste, gleichnamige Projekte zusammengefasst */
+function reorderHtml(){
+  const blocks=ordBlocks();
+  if(!blocks.length) return `<p class="note">Noch nichts zum Sortieren.</p>`;
+  const scopeTag=sc=>{ const a=new Set(sc); return a.size>1?'<span class="tag">Persönlich & Familie</span>':a.has("fam")?'<span class="tag">Familie</span>':'<span class="tag">Persönlich</span>'; };
+  let h="";
+  for(const [pv,pl] of PRIO){
+    const idx=blocks.map((b,i)=>i).filter(i=>blocks[i].prio===pv); if(!idx.length) continue;
+    h+=`<div class="prio-lbl">Priorität ${pl.toLowerCase()}</div><div class="list">`;
+    for(const i of idx){
+      const b=blocks[i];
+      if(b.task){
+        const t=b.task;
+        h+=`<div class="lib-row"><div><div class="row-title">${esc(t.title)}${scopeTag([t.scope])}</div><div class="row-meta">${esc(scheduleText(t))}</div></div>${arrowsHtml(blocks,i,"",t.title)}</div>`;
+      } else {
+        const ref=b.projects.slice().sort(byPrio)[0], ts=groupTasks(b), byId=new Map(D.tasks.map(t=>[t.id,t]));
+        h+=`<div class="pblock" style="--pc:${ref.color}"><div class="lib-row phead-btn"><div><div class="row-title" style="font-weight:700"><span class="pdot" style="display:inline-block;margin-right:8px;vertical-align:0"></span>${esc(ref.name)}${scopeTag(b.projects.map(p=>p.scope))}</div><div class="row-meta">Projekt${b.projects.length>1?", "+b.projects.length+" zusammengefasst":""}</div></div>${arrowsHtml(blocks,i,"",ref.name)}</div>`;
+        ts.forEach((x,j)=>{ const t=byId.get(x.key.slice(2)); h+=`<div class="lib-row"><div><div class="row-title">${esc(t.title)}${prioTag(t)}${b.projects.length>1?scopeTag([t.scope]):""}</div><div class="row-meta">${offsetText(t.offset)}</div></div>${arrowsHtml(ts,j,b.key,t.title)}</div>`; });
+        h+=`</div>`;
+      }
+    }
+    h+=`</div>`;
+  }
+  return h;
 }
 function libTaskRow(t){
   const ed=canEditItem(t);
@@ -1018,7 +1108,6 @@ function libTaskRow(t){
   if(t.scope==="fam") meta+=", "+assigneeText(t);
   const off=isOffNow(t)?" is-off":"";
   const inner=`<div><div class="row-title">${esc(t.title)}${t.projectId?prioTag(t):""}${pauseTag(t)}</div><div class="row-meta">${meta}</div></div>`;
-  if(ui.reorder && ed) return `<div class="lib-row${t.prio===1?" hi":""}${off}">${inner}${arrowsHtml("t",t)}</div>`;
   if(!ed) return `<button class="lib-row${t.prio===1?" hi":""}${off}" data-a="viewTask" data-v="${t.id}">${inner}<span class="chev">${R().assign?"Zuweisen ›":""}</span></button>`;
   return `<button class="lib-row${t.prio===1?" hi":""}${off}" data-a="editTask" data-v="${t.id}">${inner}<span class="chev">›</span></button>`;
 }
@@ -1041,22 +1130,22 @@ function projHit(x){
 }
 function libScopeHtml(scope){
   const flt=libFiltering();
-  let blocks=[...D.projects, ...D.tasks.filter(t=>!t.projectId)].filter(x=>x.scope===scope).sort(byPrio);
+  let blocks=sortBlocks([...D.projects, ...D.tasks.filter(t=>!t.projectId)].filter(x=>x.scope===scope));
   if(flt) blocks=blocks.filter(x=>x.name!==undefined ? (projHit(x) || D.tasks.some(t=>t.projectId===x.id && taskHit(t))) : taskHit(x));
   const canEd = scope==="me" || R().edit;
   if(flt && !blocks.length) return `<p class="note" style="margin-top:0">Keine Treffer.</p>`;
   if(!blocks.length) return `<div class="empty" style="margin-top:0"><p>${scope==="me"?"Noch keine persönlichen Aufgaben. Die siehst nur du.":"Noch keine Familien-Aufgaben."}</p>${canEd?`<div class="toolbar" style="justify-content:center"><button class="btn primary" data-a="newTask" data-scope="${scope}">Aufgabe anlegen</button><button class="btn" data-a="newProject" data-scope="${scope}">Projekt anlegen</button></div>`:""}</div>`;
   let h="";
   for(const [pv,pl] of PRIO){
-    const group=blocks.filter(x=>x.prio===pv); if(!group.length) continue;
+    const group=blocks.filter(x=>ordInfo(x).prio===pv); if(!group.length) continue;
     h+=`<div class="prio-lbl">Priorität ${pl.toLowerCase()}</div><div class="list">`;
     for(const x of group){
       if(x.name!==undefined){
-        let ts=D.tasks.filter(t=>t.projectId===x.id).sort(byPrio);
+        let ts=sortTasks(D.tasks.filter(t=>t.projectId===x.id));
         if(flt) ts=ts.filter(taskHit);
         const head=`<div><div class="row-title" style="font-weight:700"><span class="pdot" style="display:inline-block;margin-right:8px;vertical-align:0"></span>${esc(x.name)}${pauseTag(x)}</div><div class="row-meta">Projekt, ${recText(x.rec)}</div></div>`;
         h+=`<div class="pblock${isOffNow(x)?" is-off":""}" style="--pc:${x.color}">`;
-        h+= ui.reorder&&canEd ? `<div class="lib-row phead-btn">${head}${arrowsHtml("p",x)}</div>` : canEd ? `<button class="lib-row phead-btn" data-a="editProject" data-v="${x.id}">${head}<span class="chev">›</span></button>` : `<div class="lib-row phead-btn">${head}</div>`;
+        h+= canEd ? `<button class="lib-row phead-btn" data-a="editProject" data-v="${x.id}">${head}<span class="chev">›</span></button>` : `<div class="lib-row phead-btn">${head}</div>`;
         h+= ts.map(libTaskRow).join("");
         if(!ui.reorder && !flt && canEd) h+=`<button class="add-in" data-a="newTask" data-v="${x.id}" data-scope="${scope}">+ Aufgabe in diesem Projekt</button>`;
         h+=`</div>`;
@@ -1070,7 +1159,7 @@ function renderLib(){
   const r=R();
   let h=`<header class="top"><div><h1 class="top-title">Aufgaben & Projekte</h1><div class="top-sub">In dieser Reihenfolge erscheinen sie in der Tagesansicht.</div></div></header>`;
   h+=`<div class="toolbar"><button class="btn${ui.reorder?" primary":""}" data-a="reorderToggle">${ui.reorder?"Fertig":"Reihenfolge ändern"}</button>${ui.reorder?"":`<button class="btn" data-a="newTask">+ Aufgabe</button><button class="btn" data-a="newProject">+ Projekt</button>`}</div>`;
-  if(ui.reorder) h+=`<p class="note">Verschieben geht innerhalb der gleichen Priorität. Um etwas in eine andere Gruppe zu bringen, ändere seine Priorität.</p>`;
+  if(ui.reorder) h+=`<p class="note">Diese Reihenfolge gilt nur für dich. Persönliche und Familien-Einträge werden gemeinsam sortiert, gleichnamige Projekte sind zusammengefasst. Verschieben geht innerhalb der gleichen Priorität; um etwas in eine andere Gruppe zu bringen, ändere seine Priorität.</p>`;
   else {
     const mem=Object.entries(S.members).sort((a,b)=>a[1].name.localeCompare(b[1].name));
     h+=`<input class="inp" type="search" id="lib-q" placeholder="Suchen in Namen, Notizen, Checklisten" value="${esc(ui.q)}" autocomplete="off" aria-label="Aufgaben und Projekte durchsuchen" style="margin-top:14px">
@@ -1082,7 +1171,8 @@ function renderLib(){
   return h;
 }
 function libResultsHtml(){
-  const r=R(), showMe=!ui.lp || ui.lp===S.uid || ui.reorder;
+  if(ui.reorder) return `<section class="sec">${reorderHtml()}</section>`;
+  const r=R(), showMe=!ui.lp || ui.lp===S.uid;
   let h="";
   if(showMe) h+=`<section class="sec"><div class="sec-head"><h2>${ICON.lock.replace("<svg",'<svg class="h-ic"')}Persönlich</h2><span class="count">nur für dich</span></div>${libScopeHtml("me")}</section>`;
   h+=`<section class="sec"><div class="sec-head"><h2>${ICON.people.replace("<svg",'<svg class="h-ic"')}Familie</h2><span class="count">${r.edit?"du darfst planen":"nur ansehen"}</span></div>${libScopeHtml("fam")}</section>`;
@@ -1233,7 +1323,7 @@ window.addEventListener("popstate",()=>{
 function renderSheet(){
   if(!sheet) return;
   const st=$sheet.scrollTop, k=sheet.kind;
-  const f={task:taskForm, project:projectForm, occ:occSheet, settings:settingsSheet, menu:menuSheet, member:memberSheet, request:requestSheet, priv:privSheet, pin:pinSheet, viewTask:viewTaskSheet}[k];
+  const f={task:taskForm, project:projectForm, occ:occSheet, settings:settingsSheet, menu:menuSheet, member:memberSheet, request:requestSheet, imp:impSheet, pin:pinSheet, viewTask:viewTaskSheet}[k];
   $sheet.innerHTML = f? f() : "";
   $sheet.scrollTop=st;
 }
@@ -1248,7 +1338,8 @@ function scopeSeg(d){
 /* ---------- Menü ---------- */
 function menuSheet(){
   const item=(a,v,icon,label,on,badge)=>`<button class="nav-item${on?" on":""}" data-a="${a}"${v?` data-v="${v}"`:""}${on?' aria-current="page"':""}>${ICON[icon]}<span>${label}</span>${badge?`<span class="badge">${badge}</span>`:""}</button>`;
-  return head("Menü")+`<div class="nav-group navlist">
+  const imp=S.realUid? `<p class="imp-note">Du bist gerade als <b>${esc((meM()&&meM().name)||"?")}</b> angemeldet und siehst die App mit ihren Rechten und persönlichen Aufgaben.</p><button class="btn imp-exit" data-a="impStop">Zurück zu ${esc((S.members[S.realUid]&&S.members[S.realUid].name)||"meinem Konto")}</button>` : "";
+  return head("Menü")+imp+`<div class="nav-group navlist">
       ${item("go","today","sun","Heute",ui.view==="today")}
       ${item("go","days","cal","Tagesansicht",ui.view==="days")}
       ${item("go","family","people","Familie",ui.view==="family",S.requests.length)}
@@ -1328,7 +1419,7 @@ function taskForm(){
     else if(d.assignee) h+=`<p class="note">Zuständig: ${esc(nameOfNom(d.assignee))}</p>`;
   }
   h+=prioSeg(d.prio);
-  const projs=D.projects.filter(p=>p.scope===d.scope).sort(byPrio);
+  const projs=sortBlocks(D.projects.filter(p=>p.scope===d.scope));
   h+=`<label class="field"><span>Gehört zu</span><select class="inp" data-bind="projectId" data-type="str" data-rerender><option value="">keinem Projekt (eigene Termine)</option>${projs.map(p=>`<option value="${p.id}"${d.projectId===p.id?" selected":""}>Projekt: ${esc(p.name)}</option>`).join("")}</select></label>`;
   if(d.projectId){
     const p=project(d.projectId), o=d.offset|0;
@@ -1472,7 +1563,7 @@ function projectForm(){
   h+=recEditor(d.rec);
   h+=activeBox(d,"p");
   if(!isNew){
-    const ts=D.tasks.filter(t=>t.projectId===d.id).sort(byPrio);
+    const ts=sortTasks(D.tasks.filter(t=>t.projectId===d.id));
     h+=`<div class="field"><span>Aufgaben (${ts.length})</span>${ts.length?`<div class="list">${ts.map(t=>`<button class="lib-row" data-a="editTask" data-v="${t.id}"><div><div class="row-title">${esc(t.title)}</div><div class="row-meta">${offsetText(t.offset)}</div></div><span class="chev">›</span></button>`).join("")}</div>`:""}</div>`;
   }
   h+=`<p class="note err" id="form-err"></p>`;
@@ -1547,7 +1638,7 @@ function memberSheet(){
     const rr=sheet.rights||(sheet.rights=clone(m.rights||{}));
     h+=`<div class="box"><span class="lbl">Rechte in der Familie</span><p class="note" style="margin:0 0 6px">Ansehen darf jedes Mitglied. Persönliche Aufgaben verwaltet jede Person immer selbst.</p>${rightsToggles(rr,"mright")}
       <div class="sheet-actions" style="margin-top:12px"><span class="grow"></span><button class="btn primary" data-a="saveRights">Rechte speichern</button></div></div>`;
-    if(!self) h+=`<div class="menu"><button class="btn" data-a="privOpen" data-v="${uid}">${ICON.lock.replace("<svg",'<svg class="h-ic"')}Persönliche Aufgaben ansehen</button><button class="btn danger" data-a="removeMember">Aus der Familie entfernen</button></div>`;
+    if(!self) h+=`<div class="menu">${S.realUid?"":`<button class="btn" data-a="impOpen" data-v="${uid}">${ICON.lock.replace("<svg",'<svg class="h-ic"')}Als ${esc(m.name)} anmelden</button>`}<button class="btn danger" data-a="removeMember">Aus der Familie entfernen</button></div>`;
   } else if(!self){
     h+=`<p class="note">${esc(m.name)}: ${rightsSummary(m)}. Rechte vergeben können nur Admins.</p>`;
   } else {
@@ -1567,33 +1658,17 @@ function requestSheet(){
   return h;
 }
 function pinSheet(){
-  return head("Admin-Passwort ändern")+`<p class="note" style="margin:-4px 0 14px">Gilt für alle Admins der Familie. Damit lassen sich persönliche Aufgaben einsehen.</p>
+  return head("Admin-Passwort ändern")+`<p class="note" style="margin:-4px 0 14px">Gilt für alle Admins der Familie. Damit können sich Admins als andere Person anmelden.</p>
    <label class="field"><span>Neues Passwort</span><input class="inp" id="p1" type="password" autocomplete="new-password" data-autofocus></label>
    <label class="field"><span>Wiederholen</span><input class="inp" id="p2" type="password" autocomplete="new-password"></label>
    <p class="note err" id="form-err"></p><div class="sheet-actions"><span class="grow"></span><button class="btn primary" data-a="savePin">Passwort speichern</button></div>`;
 }
-function withData(data, fn){
-  const saved=D; D={tasks:(data.tasks||[]).map(t=>({...t,scope:"me"})), projects:(data.projects||[]).map(p=>({...p,scope:"me"})), log:data.log||{}}; normalize();
-  try{ return fn(); } finally{ D=saved; }
-}
-function privSheet(){
+function impSheet(){
   const m=S.members[sheet.uid]||{name:"?"};
-  let h=head("Persönlich: "+esc(m.name));
-  if(!sheet.data){
-    return h+`<p class="note" style="margin:-4px 0 14px">Persönliche Aufgaben sind privat. Mit dem Admin-Passwort kannst du sie 15 Minuten lang ansehen, aber nicht ändern.</p>
-      <label class="field"><span>Admin-Passwort</span><input class="inp" id="pin" type="password" autocomplete="current-password" data-autofocus></label>
-      <p class="note err" id="form-err"></p><div class="sheet-actions"><span class="grow"></span><button class="btn primary" data-a="privUnlock">Ansehen</button></div>`;
-  }
-  const T=todayNum();
-  return h+withData(sheet.data, ()=>{
-    const {due,overdue}=dayModel(T);
-    const rows=[...overdue,...due].map(o=>`<div class="row${o.done?" done":""}"><span class="check${o.done?" on":""} locked">${o.done?ICON.check:""}</span><div class="row-main"><div class="row-title">${esc(o.t.title)}</div><div class="row-meta">${o.eff<T&&!o.done?"fällig seit "+fmtRel(o.eff):o.done?"erledigt":"offen"}</div></div><span></span></div>`).join("");
-    const all=[...D.tasks].sort(byPrio).map(t=>`<div class="lib-row"><div><div class="row-title">${esc(t.title)}</div><div class="row-meta">${esc(scheduleText(t))}</div></div><span></span></div>`).join("");
-    return `<div class="sec-head"><h2>Heute</h2><span class="count">${due.filter(o=>o.done).length} von ${due.length+overdue.length} erledigt</span></div>${rows?`<div class="list">${rows}</div>`:`<p class="note">Heute nichts geplant.</p>`}
-      <div class="sec-head" style="margin-top:22px"><h2>Alle Aufgaben</h2><span class="count">${D.tasks.length}</span></div>${all?`<div class="list">${all}</div>`:`<p class="note">Keine persönlichen Aufgaben.</p>`}`;
-  });
+  return head("Als "+esc(m.name)+" anmelden")+`<p class="note" style="margin:-4px 0 14px">Du siehst und bedienst die App dann genau wie ${esc(m.name)}: mit ihren Rechten und ihren persönlichen Aufgaben, die du auch für sie anlegen oder ändern kannst. Solange das läuft, leuchten die Bildschirmränder rot. Zurück geht es über das Menü.</p>
+    <label class="field"><span>Admin-Passwort</span><input class="inp" id="pin" type="password" autocomplete="current-password" data-autofocus></label>
+    <p class="note err" id="form-err"></p><div class="sheet-actions"><span class="grow"></span><button class="btn primary" data-a="impStart">Anmelden</button></div>`;
 }
-
 /* ---------- Einstellungen ---------- */
 function settingsSheet(){
   let h=head("Einstellungen & Sicherung");
@@ -1601,6 +1676,8 @@ function settingsSheet(){
     h+=`<div class="box notice"><b>Demo-Modus</b><p class="note" style="margin-top:4px">Alles bleibt auf diesem Gerät. Hier kannst du in die Rolle anderer Familienmitglieder schlüpfen und so die Rechte ausprobieren.</p>
       <span class="lbl" style="margin-top:12px">Ansehen als</span><div class="chips">${B.people().map(p=>`<button class="chip${p.uid===S.uid?" on":""}" data-a="demoSwitch" data-v="${p.uid}">${esc(p.name)}</button>`).join("")}</div>
       <div class="toolbar"><button class="btn" data-a="demoNewDevice">Als neues Gerät öffnen</button><button class="btn danger" data-a="demoReset">Demo zurücksetzen</button></div></div>`;
+  } else if(S.realUid){
+    h+=`<div class="box"><b>Als andere Person angemeldet</b><p class="note" style="margin-top:4px">Anmeldung und Konto betreffen dein eigenes Gerät. Wechsle über das Menü zurück, um sie zu ändern.</p></div>`;
   } else {
     h+= S.isAnon
       ? `<div class="box"><b>Anmeldung sichern</b><p class="note" style="margin-top:4px">Dieses Gerät ist gerade dein Schlüssel. Wenn du die App löschst oder das Handy wechselst, wärst du sonst draußen. Mit E-Mail und Passwort kannst du dich später auf einem neuen Gerät wieder anmelden.</p>
@@ -1728,7 +1805,7 @@ document.addEventListener("click",async e=>{
     case "libF": ui.lf=v; render(); break;
     case "libReset": ui.q=""; ui.lf="all"; ui.lp=""; render(); break;
     case "statDays": ui.statDays=+v; render(); break;
-    case "up": case "down":{ const x=(b.dataset.kind==="p"?D.projects:D.tasks).find(y=>y.id===v); if(x) reorder(x, a==="up"?-1:1); break; }
+    case "ordUp": case "ordDown": moveOrd(b.dataset.k, b.dataset.g||null, a==="ordUp"?-1:1); break;
     case "settings": openSheet({kind:"settings"}); break;
     case "theme": try{ localStorage.setItem("tagwerk.theme",v); }catch(err){} applyTheme(); renderSheet(); break;
 
@@ -1777,11 +1854,12 @@ document.addEventListener("click",async e=>{
     case "savePin":{ const p1=document.getElementById("p1").value, p2=document.getElementById("p2").value;
       if(p1.length<4){ setErr("form-err","Mindestens 4 Zeichen."); break; } if(p1!==p2){ setErr("form-err","Die beiden Eingaben stimmen nicht überein."); break; }
       await B.setPin(p1); closeSheet(); toast("Admin-Passwort geändert."); break; }
-    case "privOpen": openSheet({kind:"priv", uid:v}); break;
-    case "privUnlock":{ busy(b,true);
-      try{ sheet.data=await B.readPrivate(sheet.uid, document.getElementById("pin").value); renderSheet(); }
-      catch(err){ busy(b,false); setErr("form-err", err.message==="pin"?"Das Admin-Passwort stimmt nicht.":"Konnte nicht geladen werden."); }
+    case "impOpen": if(R().admin && !S.realUid) openSheet({kind:"imp", uid:v}); break;
+    case "impStart":{ busy(b,true); const target=sheet.uid;
+      try{ await B.impersonate(target, document.getElementById("pin").value); closeSheet(); ui.view="today"; ui.reorder=false; render(); window.scrollTo(0,0); toast("Du bist jetzt als "+((S.members[target]&&S.members[target].name)||"andere Person")+" angemeldet."); }
+      catch(err){ console.warn(err); busy(b,false); setErr("form-err", err.message==="pin"?"Das Admin-Passwort stimmt nicht.":"Anmelden hat nicht geklappt."); }
       break; }
+    case "impStop":{ await B.stopImpersonate(); closeSheet(); ui.view="today"; ui.reorder=false; render(); window.scrollTo(0,0); toast("Du bist wieder mit deinem eigenen Konto angemeldet."); break; }
     case "copyInvite":{
       const code=(S.family&&S.family.code)||"", link=location.protocol.startsWith("http")&&!location.hostname.endsWith("claude.ai")?location.origin+location.pathname:"";
       const txt=`Mach mit bei „${(S.family&&S.family.name)||"unserer Familie"}“ in Tagwerk!${link?"\nApp: "+link:""}\nFamilien-Code: ${code}\nÖffne die App, tippe auf „Einer Familie beitreten“ und gib den Code ein.`;
@@ -1812,7 +1890,7 @@ document.addEventListener("click",async e=>{
       let x; try{ x=JSON.parse($sheet.querySelector("#imp").value); }catch(err){}
       if(!x || !Array.isArray(x.tasks) || !Array.isArray(x.projects)){ msg.textContent="Das ist keine gültige Tagwerk-Sicherung. Kopiere den kompletten Text des Exports."; break; }
       if(!confirm("Alle persönlichen Aufgaben durch die Sicherung ersetzen?")) break;
-      change(()=>{ const fam=subset("fam"); rebuild({tasks:x.tasks.map(t=>({...t,scope:"me"})), projects:x.projects.map(p=>({...p,scope:"me"})), log:x.log||{}}, fam); });
+      change(()=>{ const fam=subset("fam"); rebuild({tasks:x.tasks.map(t=>({...t,scope:"me"})), projects:x.projects.map(p=>({...p,scope:"me"})), log:x.log||{}, ord:x.ord||D.ord||{}}, fam); });
       closeSheet(); render(); toast("Sicherung eingespielt.",true); break; }
   }
   }catch(err){ console.error(err); busy(b,false); toast("Das hat nicht geklappt"+(err&&err.code?" ("+err.code+")":"")+"."); }
