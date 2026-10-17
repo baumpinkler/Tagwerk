@@ -24,7 +24,11 @@ Eine PWA für Aufgaben in der Familie. Es gibt persönliche Aufgaben, die nur ma
 | `index.html` | Die komplette App: CSS und Vanilla-JS in einer Datei, ca. 150 KB |
 | `firestore.rules` | Sicherheitsregeln, die in der Firebase-Konsole veröffentlicht werden |
 | `config.js` | Firebase-Zugangsdaten (`window.TAGWERK_FIREBASE`). **Nicht ändern.** |
-| `manifest.webmanifest`, `sw.js`, `icon-192.png` | PWA-Dateien (existieren, wurden bisher nicht bearbeitet) |
+| `manifest.webmanifest` | PWA-Manifest (Name, Farben, Icons inkl. „maskable“) |
+| `icon-192.png`, `icon-512.png` | App-Icons, abgerundet mit transparenten Ecken |
+| `icon-maskable-192.png`, `icon-maskable-512.png` | Android-Icons, randlos, Inhalt in der Sicherheitszone |
+| `apple-touch-icon.png` (180), `favicon.ico`, `favicon-32.png`, `tagwerk-icon-1024.png` | iOS-Icon, Browser-Icons, Vorlage in groß |
+| `sw.js` | Service Worker: Netz zuerst, Cache als Rückfall. Cache-Name `tagwerk-familie-v3`; Liste `FILES` enthält alle Icons. Bei neuen Dateien eintragen und Version erhöhen (fehlt eine gelistete Datei, schlägt die Installation fehl). |
 
 ## 2. Wünsche zur Zusammenarbeit
 
@@ -182,6 +186,16 @@ Felder: `id, scope, name, color, rec, created, prio, order, inactive, pauses`.
 ### Runde 4
 1. Wer nur abhaken (oder nur ansehen) darf, sieht unter „Aufgaben & Projekte“ keine Familien-Einträge mehr, auch nicht unter „Reihenfolge ändern“ (`libSeesFam()` = Recht `edit` oder `assign`; Admins immer). Familien-Aufgaben erscheinen für diese Personen nur in „Heute“ und der Tagesansicht. Sicherheitsregeln unverändert.
 2. Farben auf Android: Ursache war das **erzwungene Abdunkeln des Browsers**, während das System „hell“ meldet. Die Seite wird dann grau umgefärbt (getestet mit `--blink-settings=forceDarkModeEnabled=true`). Lösung ohne Codeänderung: in Tagwerk unter Einstellungen → Darstellung **„Dunkel“** wählen; dann zeigt der Browser das eigene Dunkelblau. Ein `<meta name="color-scheme">`-Tag half im Test nicht und wurde deshalb nicht übernommen.
+
+### Runde 5
+- Logo ohne Schriftzug, daraus alle Icon-Dateien erzeugt (später ersetzt, siehe Runde 6). `index.html` verweist jetzt auf `favicon.ico`/`favicon-32.png` und als Apple-Icon auf `apple-touch-icon.png`.
+
+### Runde 6
+- Neues Logo: Familie mit Häkchen-Kästchen auf **schwarzem** Hintergrund (ohne Haus). Alle Icon-Dateien neu erzeugt, gleiche Dateinamen wie in Runde 5. Im Manifest `background_color` = `#000000`.
+
+### Runde 7
+- Repo geprüft (github.com/baumpinkler/Tagwerk): `index.html`, `manifest.webmanifest` und `firestore.rules` waren dort noch alt. `sw.js` an neue Icons angepasst.
+- Das Repo wird über „Add files via upload“ gepflegt. Die `firestore.rules` im Repo ist nur eine Kopie; wirksam ist, was in der Firebase-Konsole veröffentlicht ist.
 
 ### Bewusst nicht umgesetzt (nicht gewünscht)
 - Punkte und Belohnungen für Kinder

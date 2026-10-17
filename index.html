@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Tagwerk">
 <title>Tagwerk</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
@@ -1937,7 +1939,7 @@ async function boot(){
 }
 if(!window.claude && "serviceWorker" in navigator && location.protocol==="https:"){
   const l=document.createElement("link"); l.rel="manifest"; l.href="manifest.webmanifest"; document.head.appendChild(l);
-  const ai=document.createElement("link"); ai.rel="apple-touch-icon"; ai.href="icon-192.png"; document.head.appendChild(ai);
+  const ai=document.createElement("link"); ai.rel="apple-touch-icon"; ai.href="apple-touch-icon.png"; document.head.appendChild(ai);
   navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 boot();
