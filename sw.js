@@ -1,5 +1,5 @@
 // Tagwerk Service Worker: App-Dateien offline vorhalten
-const CACHE = "tagwerk-familie-v1";
+const CACHE = "tagwerk-familie-v2";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./config.js", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
